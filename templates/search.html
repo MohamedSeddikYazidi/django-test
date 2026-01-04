@@ -1,0 +1,107 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search - {{ username }}</title>
+    <link href="{% static 'favicon.png' %}" rel="icon" type="image/png" />
+
+    <!-- Tailwind CSS CDN (ou utilise ton propre fichier tailwind.css) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+        rel="stylesheet"
+    />
+
+    <style>
+        body {
+            background-color: #f3f4f6; /* Gray-100 */
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header / Search Form -->
+    <header class="bg-white shadow-md py-5">
+        <div class="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <h1 class="text-3xl font-bold text-pink-600">Search Users</h1>
+
+            <form action="search" method="POST" class="flex w-full max-w-md md:max-w-lg">
+                {% csrf_token %}
+                <input
+                    type="text"
+                    name="username"
+                    placeholder="Search for username..."
+                    required
+                    class="flex-grow px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-pink-400"
+                    value="{{ username|default:'' }}"
+                />
+                <button
+                    type="submit"
+                    class="bg-pink-500 hover:bg-pink-600 text-white px-4 rounded-r-md transition flex items-center justify-center"
+                    aria-label="Search"
+                >
+                    <i class="fa fa-search"></i>
+                </button>
+            </form>
+
+            <div class="text-gray-600 hidden md:block">
+                Welcome, <span class="font-semibold">{{ user.username }}</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Results -->
+    <main class="container mx-auto px-4 py-8 flex-grow">
+
+        <h2 class="text-xl font-semibold mb-6 text-gray-700">
+            Results for "<span class="text-pink-600">{{ username }}</span>"
+        </h2>
+
+        {% if username_profile_list %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for users in username_profile_list %}
+            <a
+                href="/profile/{{ users.user }}"
+                class="block bg-white rounded-lg shadow hover:shadow-lg transition p-4 flex gap-4 items-center"
+            >
+                <img
+                    src="{{ users.profileimg.url }}"
+                    alt="@{{ users.user }} profile image"
+                    class="w-20 h-20 rounded-full object-cover flex-shrink-0"
+                />
+                <div>
+                    <h3 class="text-lg font-bold text-pink-600">@{{ users.user }}</h3>
+                    <p class="text-sm text-gray-500">{{ users.location|default:"Location unknown" }}</p>
+                    <p class="text-gray-700 mt-1 line-clamp-3">{{ users.bio|default:"No bio available." }}</p>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 italic">No results found for "<span class="text-pink-600">{{ username }}</span>".</p>
+        {% endif %}
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-6 text-gray-400 text-sm">
+        &copy; {{ now.year }} YourSite. All rights reserved.
+    </footer>
+
+    <!-- Scripts -->
+    <script src="{% static 'assets/js/jquery-3.3.1.min.js' %}"></script>
+    <script src="{% static 'assets/js/uikit.js' %}"></script>
+    <script src="{% static 'assets/js/simplebar.js' %}"></script>
+    <script src="{% static 'assets/js/custom.js' %}"></script>
+
+</body>
+
+</html>

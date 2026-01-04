@@ -1,0 +1,219 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Messages • SocialBook</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body { padding-top: 70px; }
+        .chat-container { height: calc(100vh - 100px); }
+        .messages-area { height: calc(100% - 130px); overflow-y: auto; }
+        .notification-dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid white; }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+
+<nav class="bg-white border-b fixed top-0 w-full z-50 h-16 flex items-center">
+    <div class="max-w-5xl mx-auto w-full flex justify-between items-center px-4">
+        <a href="/" class="font-bold text-2xl tracking-tighter text-blue-600">SocialBook</a>
+        
+        <div class="flex items-center gap-6">
+            <a href="/" class="text-xl hover:text-blue-500"><i class="fa-solid fa-house"></i></a>
+            
+            <!-- NOTIFICATIONS -->
+            <div class="relative group py-2">
+                <button id="notifBtn" class="text-xl hover:text-blue-500 relative focus:outline-none">
+                    <i class="fa-regular fa-heart"></i>
+                    {% if unread_notifications_count > 0 %}
+                        <span id="notifDot" class="notification-dot"></span>
+                    {% endif %}
+                </button>
+                <div id="notifDropdown" class="absolute right-0 mt-1 w-80 bg-white border rounded-md shadow-lg hidden group-hover:block z-50 overflow-hidden">
+                    <div class="p-3 border-b font-bold text-sm">Notifications</div>
+                    <div class="max-h-96 overflow-y-auto">
+                        {% for notif in notifications %}
+                        <a href="{% if notif.notification_type == 'follow' %}/profile/{{ notif.sender.username }}{% else %}/#post-{{ notif.post.id }}{% endif %}" 
+                           class="p-3 flex items-center gap-3 hover:bg-gray-50 border-b last:border-0 {% if not notif.is_seen %}bg-blue-50/50{% endif %} block">
+                            <img src="{{ notif.sender.profile.profileimg.url }}" class="w-10 h-10 rounded-full object-cover">
+                            <div class="flex-1">
+                                <p class="text-xs"><span class="font-bold">{{ notif.sender.username }}</span> {{ notif.notification_type }}ed your post.</p>
+                                <p class="text-[10px] text-gray-400 mt-1">{{ notif.created_at|timesince }} ago</p>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- MESSAGES ICON -->
+            <a href="/chat" class="text-xl hover:text-blue-500 relative">
+                <i class="fa-regular fa-paper-plane"></i>
+                {% if unread_messages_count > 0 %}
+                    <span class="notification-dot"></span>
+                {% endif %}
+            </a>
+
+            <div class="relative group py-2"> 
+                <button class="flex items-center focus:outline-none">
+                    <img src="{{ user_profile.profileimg.url }}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm group-hover:border-blue-400 transition">
+                </button>
+                <div class="absolute right-0 mt-1 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block z-50">
+                    <div class="py-1">
+                        <a href="/profile/{{ user.username }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">My Profile</a>
+                        <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
+                        <hr class="my-1">
+                        <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<main class="max-w-5xl mx-auto px-4">
+    <div class="bg-white border rounded-xl shadow-sm flex chat-container overflow-hidden">
+        
+        <!-- Sidebar: Liste des utilisateurs -->
+        <div class="w-1/3 border-r flex flex-col">
+            <div class="p-4 border-b font-bold text-lg flex justify-between items-center">
+                <span>{{ user.username }}</span>
+                <i class="fa-regular fa-pen-to-square cursor-pointer"></i>
+            </div>
+            <div class="flex-1 overflow-y-auto">
+                {% for chat_user in chat_users %}
+                <a href="/chat/{{ chat_user.username }}" 
+                   class="flex items-center gap-3 p-4 hover:bg-gray-50 transition {% if active_chat_user.id == chat_user.id %}bg-blue-50{% endif %}">
+                    <img src="{{ chat_user.profile.profileimg.url }}" class="w-12 h-12 rounded-full object-cover border">
+                    <div class="hidden md:block">
+                        <p class="font-bold text-sm">{{ chat_user.username }}</p>
+                        <p class="text-xs text-gray-400">Click to chat</p>
+                    </div>
+                </a>
+                {% empty %}
+                <div class="p-10 text-center text-gray-400 text-sm">No conversations yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Zone de Chat -->
+        <div class="flex-1 flex flex-col">
+            {% if active_chat_user %}
+            <!-- Header Chat -->
+            <div class="p-4 border-b flex items-center gap-3">
+                <img src="{{ active_chat_user.profile.profileimg.url }}" class="w-8 h-8 rounded-full object-cover border">
+                <span class="font-bold">{{ active_chat_user.username }}</span>
+            </div>
+
+            <!-- Messages -->
+            <div id="messagesArea" class="flex-1 p-4 space-y-4 messages-area bg-gray-50/30">
+                {% for msg in messages_list %}
+                <div class="flex {% if msg.sender == user %}justify-end{% endif %}">
+                    <div class="max-w-[70%] px-4 py-2 rounded-2xl text-sm shadow-sm
+                        {% if msg.sender == user %}
+                            bg-blue-500 text-white rounded-tr-none
+                        {% else %}
+                            bg-white text-gray-800 border rounded-tl-none
+                        {% endif %}">
+                        <p>{{ msg.content }}</p>
+                        <p class="text-[10px] mt-1 opacity-70 text-right">{{ msg.created_at|date:"H:i" }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Input Message -->
+            <div class="p-4 border-t bg-white">
+                <form id="chatForm" class="flex items-center gap-3 bg-gray-100 rounded-full px-4 py-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="receiver_id" value="{{ active_chat_user.id }}">
+                    <input type="text" name="content" id="messageInput" placeholder="Message..." autocomplete="off"
+                           class="flex-1 bg-transparent focus:outline-none text-sm">
+                    <button type="submit" class="text-blue-500 font-bold text-sm hover:text-blue-700">Send</button>
+                </form>
+            </div>
+            {% else %}
+            <div class="flex-1 flex flex-col items-center justify-center text-gray-400 space-y-4">
+                <div class="w-20 h-20 border-2 border-gray-300 rounded-full flex items-center justify-center text-3xl">
+                    <i class="fa-regular fa-paper-plane"></i>
+                </div>
+                <div class="text-center">
+                    <h2 class="text-xl font-bold text-gray-800">Your Messages</h2>
+                    <p class="text-sm">Send private photos and messages to a friend.</p>
+                </div>
+                <button class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold">Send Message</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</main>
+
+<script>
+    const messagesArea = document.getElementById('messagesArea');
+    const chatForm = document.getElementById('chatForm');
+    const messageInput = document.getElementById('messageInput');
+
+    if (messagesArea) {
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+
+    if (chatForm) {
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const content = messageInput.value;
+            if (!content) return;
+
+            const formData = new FormData(this);
+            
+            fetch('/send-message/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'sent') {
+                    messageInput.value = '';
+                    refreshMessages();
+                }
+            });
+        });
+    }
+
+    function refreshMessages() {
+        if (!activeChatUsername) return;
+        fetch(`/get-messages/${activeChatUsername}/`)
+        .then(response => response.json())
+        .then(data => {
+            let html = '';
+            data.messages.forEach(msg => {
+                const isMe = msg.sender === '{{ user.username }}';
+                html += `
+                    <div class="flex ${isMe ? 'justify-end' : ''}">
+                        <div class="max-w-[70%] px-4 py-2 rounded-2xl text-sm shadow-sm
+                            ${isMe ? 'bg-blue-500 text-white rounded-tr-none' : 'bg-white text-gray-800 border rounded-tl-none'}">
+                            <p>${msg.content}</p>
+                            <p class="text-[10px] mt-1 opacity-70 text-right">${msg.created_at}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            messagesArea.innerHTML = html;
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        });
+    }
+
+    const activeChatUsername = "{% if active_chat_user %}{{ active_chat_user.username }}{% endif %}";
+    if (activeChatUsername) {
+        setInterval(refreshMessages, 3000); // Rafraîchir toutes les 3 secondes
+    }
+</script>
+
+</body>
+</html>

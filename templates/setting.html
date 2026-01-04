@@ -1,0 +1,131 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Account Settings - {{ user.username }}</title>
+    <link href="{% static 'assets/images/favicon.png' %}" rel="icon" type="image/png" />
+
+    <!-- Tailwind CSS (ou ton fichier local) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body {
+            background-color: #f9fafb; /* Gray-50 */
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+
+    <main class="container mx-auto px-4 py-8 flex-grow max-w-5xl">
+
+        <!-- Breadcrumb -->
+        <nav class="text-gray-600 mb-6 text-sm" aria-label="Breadcrumb">
+            <ol class="list-reset flex space-x-2">
+                <li><a href="/" class="text-pink-600 hover:underline font-semibold">Home</a></li>
+                <li>/</li>
+                <li>Account Settings for <span class="font-bold">{{ user.username }}</span></li>
+            </ol>
+        </nav>
+
+        <h1 class="text-3xl font-extrabold mb-8 text-gray-900">Account Settings</h1>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+
+            <!-- Sidebar / Menu (optional, can add later) -->
+            <aside>
+                <nav class="space-y-3 text-gray-700 font-medium">
+                    <a href="#" class="block py-2 px-3 rounded bg-pink-100 text-pink-700 font-semibold">General</a>
+                    <!-- Ajoute d'autres onglets ici si besoin -->
+                    <!-- <a href="#" class="block py-2 px-3 rounded hover:bg-pink-100 hover:text-pink-700">Privacy</a> -->
+                </nav>
+            </aside>
+
+            <!-- Main Content -->
+            <section class="lg:col-span-2 bg-white rounded-lg shadow-md p-8">
+
+                <form action="" method="POST" enctype="multipart/form-data" class="space-y-6">
+                    {% csrf_token %}
+
+                    <!-- Profile Image -->
+                    <div>
+                        <label class="block mb-2 font-semibold text-gray-700">Profile Image</label>
+                        <div class="flex items-center space-x-4">
+                            <img
+                                src="{{ user_profile.profileimg.url }}"
+                                alt="Profile image of {{ user.username }}"
+                                class="w-24 h-24 rounded-full object-cover border border-gray-300"
+                            />
+                            <input
+                                type="file"
+                                name="image"
+                                class="block w-full text-sm text-gray-500
+                                       file:mr-4 file:py-2 file:px-4
+                                       file:rounded file:border-0
+                                       file:text-sm file:font-semibold
+                                       file:bg-pink-100 file:text-pink-700
+                                       hover:file:bg-pink-200
+                                "
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Bio -->
+                    <div>
+                        <label for="bio" class="block mb-2 font-semibold text-gray-700">Bio</label>
+                        <textarea
+                            id="bio"
+                            name="bio"
+                            rows="4"
+                            placeholder="Tell us something about yourself..."
+                            class="w-full rounded-md border border-gray-300 p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-400 resize-none"
+                        >{{ user_profile.bio }}</textarea>
+                    </div>
+
+                    <!-- Location -->
+                    <div>
+                        <label for="location" class="block mb-2 font-semibold text-gray-700">Location</label>
+                        <input
+                            id="location"
+                            type="text"
+                            name="location"
+                            value="{{ user_profile.location }}"
+                            placeholder="Your location"
+                            class="w-full rounded-md border border-gray-300 p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                        />
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="flex justify-end space-x-4">
+                        <a
+                            href="/"
+                            class="px-5 py-2 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+                        >Cancel</a>
+                        <button
+                            type="submit"
+                            class="px-6 py-2 rounded-md bg-pink-600 text-white font-semibold hover:bg-pink-700 transition"
+                        >Save</button>
+                    </div>
+
+                </form>
+
+            </section>
+        </div>
+
+    </main>
+
+    <!-- Scripts -->
+    <script src="{% static 'assets/js/jquery-3.3.1.min.js' %}"></script>
+    <script src="{% static 'assets/js/uikit.js' %}"></script>
+    <script src="{% static 'assets/js/simplebar.js' %}"></script>
+    <script src="{% static 'assets/js/custom.js' %}"></script>
+
+    <script src="{% static '../../unpkg.com/ionicons%405.2.3/dist/ionicons.js' %}"></script>
+</body>
+
+</html>
