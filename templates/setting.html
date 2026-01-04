@@ -1,131 +1,482 @@
 {% load static %}
-
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
-
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Account Settings - {{ user.username }}</title>
-    <link href="{% static 'assets/images/favicon.png' %}" rel="icon" type="image/png" />
-
-    <!-- Tailwind CSS (ou ton fichier local) -->
+    <meta charset="UTF-8">
+    <title>Settings • Academe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://cdn.tailwindcss.com"></script>
-
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
-        body {
-            background-color: #f9fafb; /* Gray-50 */
-            font-family: 'Inter', sans-serif;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap');
+        
+        * { font-family: 'Inter', sans-serif; }
+        .heading-font { font-family: 'Playfair Display', serif; }
+        
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .sidebar-link {
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .sidebar-link.active {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .sidebar-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .profile-upload {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .profile-upload:hover {
+            transform: scale(1.05);
+        }
+        
+        .upload-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .profile-upload:hover .upload-overlay {
+            opacity: 1;
+        }
+        
+        .setting-section {
+            transition: all 0.3s;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            background: #e5e7eb;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .toggle-switch input {
+            display: none;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .toggle-switch input:checked ~ .toggle-slider {
+            transform: translateX(24px);
+        }
+        
+        .toggle-switch input:checked ~ .toggle-switch {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
     </style>
 </head>
 
-<body class="min-h-screen flex flex-col">
+<body class="pt-16">
 
-    <main class="container mx-auto px-4 py-8 flex-grow max-w-5xl">
+<!-- Navigation -->
+<nav class="glass-nav fixed top-0 w-full z-50 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-3">
+        <div class="flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-graduation-cap text-white text-xl"></i>
+                </div>
+                <span class="heading-font text-2xl font-bold gradient-text">Academe</span>
+            </a>
+            
+            <div class="flex items-center gap-6">
+                <a href="/" class="text-gray-700 hover:text-purple-600 transition text-xl">
+                    <i class="fas fa-home"></i>
+                </a>
+                <a href="/chat" class="text-gray-700 hover:text-purple-600 transition text-xl">
+                    <i class="far fa-comment-dots"></i>
+                </a>
+                <a href="/profile/{{ user.username }}" class="text-gray-700 hover:text-purple-600 transition text-xl">
+                    <i class="far fa-user"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
 
-        <!-- Breadcrumb -->
-        <nav class="text-gray-600 mb-6 text-sm" aria-label="Breadcrumb">
-            <ol class="list-reset flex space-x-2">
-                <li><a href="/" class="text-pink-600 hover:underline font-semibold">Home</a></li>
-                <li>/</li>
-                <li>Account Settings for <span class="font-bold">{{ user.username }}</span></li>
-            </ol>
-        </nav>
-
-        <h1 class="text-3xl font-extrabold mb-8 text-gray-900">Account Settings</h1>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
-
-            <!-- Sidebar / Menu (optional, can add later) -->
-            <aside>
-                <nav class="space-y-3 text-gray-700 font-medium">
-                    <a href="#" class="block py-2 px-3 rounded bg-pink-100 text-pink-700 font-semibold">General</a>
-                    <!-- Ajoute d'autres onglets ici si besoin -->
-                    <!-- <a href="#" class="block py-2 px-3 rounded hover:bg-pink-100 hover:text-pink-700">Privacy</a> -->
-                </nav>
-            </aside>
-
-            <!-- Main Content -->
-            <section class="lg:col-span-2 bg-white rounded-lg shadow-md p-8">
-
-                <form action="" method="POST" enctype="multipart/form-data" class="space-y-6">
-                    {% csrf_token %}
-
-                    <!-- Profile Image -->
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="/" class="text-white hover:text-purple-100 transition flex items-center gap-2">
+            <i class="fas fa-arrow-left"></i>
+            <span>Back to Home</span>
+        </a>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        <!-- Sidebar -->
+        <div class="glass-card rounded-2xl shadow-lg p-6 h-fit">
+            <h2 class="font-bold text-gray-800 mb-6 text-lg">Settings</h2>
+            
+            <nav class="space-y-2">
+                <a href="#profile" class="sidebar-link active flex items-center gap-3 px-4 py-3 rounded-xl">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Profile</span>
+                </a>
+                <a href="#account" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50">
+                    <i class="fas fa-cog"></i>
+                    <span>Account</span>
+                </a>
+                <a href="#privacy" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Privacy</span>
+                </a>
+                <a href="#notifications" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50">
+                    <i class="fas fa-bell"></i>
+                    <span>Notifications</span>
+                </a>
+                <a href="#appearance" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50">
+                    <i class="fas fa-palette"></i>
+                    <span>Appearance</span>
+                </a>
+                <hr class="my-4">
+                <a href="/logout" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </nav>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="lg:col-span-3 space-y-8">
+            
+            <!-- Profile Section -->
+            <div class="glass-card rounded-2xl shadow-lg p-8">
+                <div class="flex items-center justify-between mb-8">
                     <div>
-                        <label class="block mb-2 font-semibold text-gray-700">Profile Image</label>
-                        <div class="flex items-center space-x-4">
-                            <img
-                                src="{{ user_profile.profileimg.url }}"
-                                alt="Profile image of {{ user.username }}"
-                                class="w-24 h-24 rounded-full object-cover border border-gray-300"
-                            />
-                            <input
-                                type="file"
-                                name="image"
-                                class="block w-full text-sm text-gray-500
-                                       file:mr-4 file:py-2 file:px-4
-                                       file:rounded file:border-0
-                                       file:text-sm file:font-semibold
-                                       file:bg-pink-100 file:text-pink-700
-                                       hover:file:bg-pink-200
-                                "
-                            />
+                        <h2 class="text-2xl font-bold gradient-text mb-2">Edit Profile</h2>
+                        <p class="text-gray-600">Manage your public profile information</p>
+                    </div>
+                    <div class="w-12 h-12 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-user-edit text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+                
+                <form action="" method="POST" enctype="multipart/form-data" class="space-y-8">
+                    {% csrf_token %}
+                    
+                    <!-- Profile Picture -->
+                    <div class="text-center">
+                        <label class="profile-upload block">
+                            <img src="{{ user_profile.profileimg.url }}" class="w-full h-full rounded-full object-cover ring-4 ring-purple-200 shadow-lg">
+                            <input type="file" name="image" class="hidden" accept="image/*">
+                            <div class="upload-overlay">
+                                <div class="text-white">
+                                    <i class="fas fa-camera text-2xl mb-2"></i>
+                                    <p class="text-sm font-medium">Change Photo</p>
+                                </div>
+                            </div>
+                        </label>
+                        <p class="text-sm text-gray-500 mt-4">JPG, PNG or GIF. Max size 5MB.</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Username (Read-only) -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                            <div class="px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-500">
+                                {{ user.username }}
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Username cannot be changed</p>
+                        </div>
+                        
+                        <!-- Email (Read-only) -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <div class="px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-500">
+                                {{ user.email }}
+                            </div>
                         </div>
                     </div>
-
-                    <!-- Bio -->
-                    <div>
-                        <label for="bio" class="block mb-2 font-semibold text-gray-700">Bio</label>
-                        <textarea
-                            id="bio"
-                            name="bio"
-                            rows="4"
-                            placeholder="Tell us something about yourself..."
-                            class="w-full rounded-md border border-gray-300 p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-400 resize-none"
-                        >{{ user_profile.bio }}</textarea>
-                    </div>
-
+                    
                     <!-- Location -->
                     <div>
-                        <label for="location" class="block mb-2 font-semibold text-gray-700">Location</label>
-                        <input
-                            id="location"
-                            type="text"
-                            name="location"
-                            value="{{ user_profile.location }}"
-                            placeholder="Your location"
-                            class="w-full rounded-md border border-gray-300 p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                        />
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                        <div class="relative">
+                            <i class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <input 
+                                type="text" 
+                                name="location" 
+                                value="{{ user_profile.location }}"
+                                placeholder="e.g., Paris, France"
+                                class="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl outline-none focus:border-purple-500 focus:bg-white transition"
+                            >
+                        </div>
                     </div>
-
-                    <!-- Buttons -->
-                    <div class="flex justify-end space-x-4">
-                        <a
-                            href="/"
-                            class="px-5 py-2 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
-                        >Cancel</a>
-                        <button
-                            type="submit"
-                            class="px-6 py-2 rounded-md bg-pink-600 text-white font-semibold hover:bg-pink-700 transition"
-                        >Save</button>
+                    
+                    <!-- Bio -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+                        <textarea 
+                            name="bio" 
+                            rows="4" 
+                            placeholder="Tell the community about yourself, your academic interests, and expertise..."
+                            class="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl outline-none focus:border-purple-500 focus:bg-white transition resize-none"
+                        >{{ user_profile.bio }}</textarea>
+                        <div class="flex justify-between mt-2">
+                            <p class="text-xs text-gray-500">Maximum 500 characters</p>
+                            <p class="text-xs text-gray-500">{{ user_profile.bio|length }}/500</p>
+                        </div>
                     </div>
-
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex items-center gap-4 pt-6 border-t border-gray-200">
+                        <button 
+                            type="submit" 
+                            class="px-8 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition transform hover:scale-[1.02]"
+                        >
+                            <i class="fas fa-save mr-2"></i>Save Changes
+                        </button>
+                        <a 
+                            href="/profile/{{ user.username }}" 
+                            class="px-8 py-3 bg-white border-2 border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition"
+                        >
+                            Cancel
+                        </a>
+                    </div>
                 </form>
-
-            </section>
+            </div>
+            
+            <!-- Privacy Settings -->
+            <div class="glass-card rounded-2xl shadow-lg p-8">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="text-2xl font-bold gradient-text mb-2">Privacy & Security</h2>
+                        <p class="text-gray-600">Control who can see your content and activity</p>
+                    </div>
+                    <div class="w-12 h-12 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-shield-alt text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+                
+                <div class="space-y-6">
+                    <!-- Privacy Option -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                                <i class="fas fa-lock text-purple-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800">Private Account</h4>
+                                <p class="text-sm text-gray-500">Only approved followers can see your posts</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                                <i class="fas fa-eye text-purple-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800">Show Activity Status</h4>
+                                <p class="text-sm text-gray-500">Let others see when you're online</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                                <i class="fas fa-comment text-purple-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800">Allow Messages</h4>
+                                <p class="text-sm text-gray-500">Anyone can send you messages</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notifications -->
+            <div class="glass-card rounded-2xl shadow-lg p-8">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="text-2xl font-bold gradient-text mb-2">Notification Preferences</h2>
+                        <p class="text-gray-600">Choose what updates you want to receive</p>
+                    </div>
+                    <div class="w-12 h-12 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-bell text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+                
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                                <i class="fas fa-heart text-purple-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800">Likes & Comments</h4>
+                                <p class="text-sm text-gray-500">Get notified when someone engages with your posts</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                                <i class="fas fa-user-plus text-purple-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800">New Followers</h4>
+                                <p class="text-sm text-gray-500">Know when someone starts following you</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                                <i class="fas fa-envelope text-purple-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800">Messages</h4>
+                                <p class="text-sm text-gray-500">Alerts for new messages and conversations</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Danger Zone -->
+            <div class="glass-card rounded-2xl shadow-lg p-8 border-2 border-red-200">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-red-600 mb-1">Danger Zone</h2>
+                        <p class="text-gray-600 text-sm">Irreversible and destructive actions</p>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <button class="w-full py-3 bg-white border-2 border-red-300 text-red-600 font-medium rounded-xl hover:bg-red-50 transition">
+                        <i class="fas fa-trash-alt mr-2"></i>Delete Account
+                    </button>
+                    <p class="text-sm text-gray-500 text-center">This action cannot be undone. All your data will be permanently deleted.</p>
+                </div>
+            </div>
+            
         </div>
+    </div>
+</div>
 
-    </main>
+<script>
+    // Toggle switches
+    document.querySelectorAll('.toggle-switch input').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            if (this.checked) {
+                this.parentElement.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            } else {
+                this.parentElement.style.background = '#e5e7eb';
+            }
+        });
+        
+        // Initialize
+        if (toggle.checked) {
+            toggle.parentElement.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        }
+    });
 
-    <!-- Scripts -->
-    <script src="{% static 'assets/js/jquery-3.3.1.min.js' %}"></script>
-    <script src="{% static 'assets/js/uikit.js' %}"></script>
-    <script src="{% static 'assets/js/simplebar.js' %}"></script>
-    <script src="{% static 'assets/js/custom.js' %}"></script>
+    // Profile picture preview
+    document.querySelector('input[name="image"]').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                document.querySelector('.profile-upload img').src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+</script>
 
-    <script src="{% static '../../unpkg.com/ionicons%405.2.3/dist/ionicons.js' %}"></script>
 </body>
-
 </html>

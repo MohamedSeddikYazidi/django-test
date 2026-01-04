@@ -1,492 +1,118 @@
-{% comment %} {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Knowledge Hub • SocialBook</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
-        .post-card { transition: transform 0.2s; }
-        body { padding-top: 70px; }
-        .notification-dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid white; }
-        .category-pill { transition: all 0.3s; }
-        .category-pill.active { background-color: #3b82f6; color: white; }
-        .resource-badge { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
-</head>
-
-<body class="bg-gray-50 text-gray-800">
-
-<nav class="bg-white border-b fixed top-0 w-full z-50 h-16 flex items-center">
-    <div class="max-w-5xl mx-auto w-full flex justify-between items-center px-4">
-        <a href="/" class="font-bold text-2xl tracking-tighter text-blue-600 flex items-center gap-2">
-            <i class="fa-solid fa-graduation-cap"></i> SocialBook
-        </a>
-        
-        <!-- BARRE DE RECHERCHE DYNAMIQUE -->
-        <form action="/" method="GET" class="hidden md:flex bg-gray-100 rounded-lg items-center px-3 py-1.5">
-            <i class="fa-solid fa-magnifying-glass text-gray-400 mr-2 text-sm"></i>
-            <input type="text" name="search" value="{{ search_query }}" placeholder="Rechercher une ressource..." class="bg-transparent text-sm focus:outline-none w-64">
-        </form>
-
-        <div class="flex items-center gap-6">
-            <a href="/" class="text-xl hover:text-blue-500"><i class="fa-solid fa-house"></i></a>
-            
-            <!-- NOTIFICATIONS -->
-            <div class="relative group py-2">
-                <button id="notifBtn" class="text-xl hover:text-blue-500 relative focus:outline-none">
-                    <i class="fa-regular fa-heart"></i>
-                    {% if unread_notifications_count > 0 %}<span id="notifDot" class="notification-dot"></span>{% endif %}
-                </button>
-                <div id="notifDropdown" class="absolute right-0 mt-1 w-80 bg-white border rounded-md shadow-lg hidden group-hover:block z-50 overflow-hidden">
-                    <div class="p-3 border-b font-bold text-sm">Notifications</div>
-                    <div class="max-h-96 overflow-y-auto">
-                        {% for notif in notifications %}
-                        <a href="{% if notif.notification_type == 'follow' %}/profile/{{ notif.sender.username }}{% else %}/#post-{{ notif.post.id }}{% endif %}" 
-                           class="p-3 flex items-center gap-3 hover:bg-gray-50 border-b last:border-0 {% if not notif.is_seen %}bg-blue-50/50{% endif %} block">
-                            <img src="{{ notif.sender.profile.profileimg.url }}" class="w-10 h-10 rounded-full object-cover">
-                            <div class="flex-1">
-                                <p class="text-xs"><span class="font-bold">{{ notif.sender.username }}</span> {{ notif.notification_type }}ed your post.</p>
-                                <p class="text-[10px] text-gray-400 mt-1">{{ notif.created_at|timesince }} ago</p>
-                            </div>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- MESSAGES -->
-            <a href="/chat" class="text-xl hover:text-blue-500 relative">
-                <i class="fa-regular fa-paper-plane"></i>
-                {% if unread_messages_count > 0 %}<span class="notification-dot"></span>{% endif %}
-            </a>
-
-            <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="text-xl hover:text-blue-500">
-                <i class="fa-regular fa-square-plus"></i>
-            </button>
-            
-            <div class="relative group py-2"> 
-                <button class="flex items-center focus:outline-none">
-                    <img src="{{ user_profile.profileimg.url }}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm">
-                </button>
-                <div class="absolute right-0 mt-1 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block z-50">
-                    <div class="py-1">
-                        <a href="/profile/{{ user.username }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Mon Profil</a>
-                        <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Paramètres</a>
-                        <hr class="my-1">
-                        <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Déconnexion</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</nav>
-
-<main class="max-w-5xl mx-auto px-4 py-6">
-    
-    <!-- BARRE DE CATÉGORIES -->
-    <div class="flex gap-3 mb-8 overflow-x-auto pb-2 no-scrollbar">
-        <a href="/?category=all" class="category-pill px-4 py-1.5 rounded-full border bg-white text-sm font-medium hover:border-blue-400 {% if current_category == 'all' %}active{% endif %}">Tout</a>
-        {% for cat_key, cat_name in categories %}
-        <a href="/?category={{ cat_key }}" class="category-pill px-4 py-1.5 rounded-full border bg-white text-sm font-medium hover:border-blue-400 {% if current_category == cat_key %}active{% endif %}">{{ cat_name }}</a>
-        {% endfor %}
-    </div>
-
-    <div class="flex flex-col md:flex-row gap-8">
-        <div class="md:w-2/3 space-y-6">
-            {% for post in posts %}
-            <div id="post-{{ post.id }}" class="bg-white border rounded-xl overflow-hidden shadow-sm post-card {% if post.is_resource %}border-blue-200 ring-1 ring-blue-50{% endif %}">
-                <div class="flex items-center justify-between px-4 py-3">
-                    <div class="flex items-center gap-3">
-                        <img src="{{ post.user.profile.profileimg.url }}" class="w-9 h-9 rounded-full object-cover border">
-                        <div>
-                            <a href="/profile/{{ post.user.username }}" class="font-bold text-sm hover:underline">{{ post.user.username }}</a>
-                            <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">{{ post.get_category_display }}</p>
-                        </div>
-                    </div>
-                    {% if post.is_resource %}
-                    <span class="resource-badge text-[10px] text-white px-2 py-1 rounded-md font-bold uppercase">Ressource Académique</span>
-                    {% endif %}
-                </div>
-
-                <img src="{{ post.image.url }}" class="w-full object-cover bg-black" style="max-height: 550px;">
-
-                <div class="px-4 py-3">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-4">
-                            <button class="like-btn text-2xl focus:outline-none transform active:scale-125 transition" data-post-id="{{ post.id }}">
-                                <i id="like-icon-{{ post.id }}" class="fa-heart {% if post.is_liked %}fa-solid text-red-500{% else %}fa-regular text-gray-700 hover:text-red-400{% endif %}"></i>
-                            </button>
-                            <i class="fa-regular fa-comment text-2xl text-gray-700 cursor-pointer"></i>
-                        </div>
-                        <button class="save-btn text-xl focus:outline-none" data-post-id="{{ post.id }}">
-                            <i id="save-icon-{{ post.id }}" class="fa-bookmark {% if post.is_saved %}fa-solid text-blue-600{% else %}fa-regular text-gray-700 hover:text-blue-500{% endif %}"></i>
-                        </button>
-                    </div>
-
-                    <p class="text-sm font-bold mb-1"><span id="likes-count-{{ post.id }}">{{ post.no_of_likes }}</span> mentions j'aime</p>
-                    <p class="text-sm leading-relaxed"><span class="font-bold mr-2">{{ post.user.username }}</span>{{ post.caption }}</p>
-
-                    <!-- COMMENTAIRES -->
-                    <div class="mt-4 space-y-2 border-t pt-3">
-                        {% for comment in post.comments.all %}
-                        <div class="flex justify-between items-start group">
-                            <p class="text-sm"><span class="font-bold mr-2">{{ comment.user.username }}</span>{{ comment.text }}</p>
-                            {% if comment.user == request.user %}
-                            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                                <button onclick="editComment('{{ comment.id }}', '{{ comment.text }}')" class="text-gray-400 hover:text-blue-500"><i class="fa-solid fa-pen text-[10px]"></i></button>
-                                <a href="/delete-comment/{{ comment.id }}/" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-trash text-[10px]"></i></a>
-                            </div>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                    <form action="/add-comment/{{ post.id }}/" method="POST" class="mt-4 flex items-center gap-3 border-t pt-3">
-                        {% csrf_token %}
-                        <input type="text" name="comment" placeholder="Ajouter un commentaire..." required class="flex-1 text-sm focus:outline-none py-1 bg-transparent">
-                        <button type="submit" class="text-blue-500 font-bold text-sm hover:text-blue-700">Publier</button>
-                    </form>
-                </div>
-            </div>
-            {% empty %}
-            <div class="bg-white border rounded-xl p-10 text-center">
-                <p class="text-gray-500">Aucune publication trouvée.</p>
-            </div>
-            {% endfor %}
-        </div>
-
-        <div class="md:w-1/3 hidden md:block">
-            <div class="sticky top-24 space-y-4">
-                <div class="bg-white border rounded-xl p-4 shadow-sm">
-                    <h3 class="font-bold text-gray-500 text-sm mb-4">Suggestions d'étudiants</h3>
-                    {% for suggestion in suggestions_username_profile_list %}
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-3">
-                            <img src="{{ suggestion.profileimg.url }}" class="w-8 h-8 rounded-full object-cover">
-                            <a href="/profile/{{ suggestion.user.username }}" class="font-bold text-xs hover:underline">{{ suggestion.user.username }}</a>
-                        </div>
-                        <a href="/profile/{{ suggestion.user.username }}" class="text-blue-500 text-xs font-bold">Voir</a>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-</main>
-
-<!-- MODAL EDIT COMMENT -->
-<div id="editCommentModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[110]">
-    <div class="bg-white rounded-xl w-80 p-4 shadow-2xl">
-        <h3 class="font-bold mb-4">Modifier le commentaire</h3>
-        <form id="editCommentForm" method="POST">
-            {% csrf_token %}
-            <textarea name="comment_text" id="editCommentText" rows="3" class="w-full border rounded p-2 text-sm mb-4 outline-none"></textarea>
-            <div class="flex justify-end gap-2">
-                <button type="button" onclick="document.getElementById('editCommentModal').classList.add('hidden')" class="text-sm text-gray-500">Annuler</button>
-                <button type="submit" class="bg-blue-500 text-white px-4 py-1 rounded text-sm font-bold">Enregistrer</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- MODAL UPLOAD -->
-<div id="uploadModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm">
-    <div class="bg-white rounded-xl w-96 overflow-hidden shadow-2xl">
-        <div class="border-b px-4 py-3 flex justify-between items-center bg-gray-50">
-            <span class="font-bold">Partager une ressource</span>
-            <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="text-2xl">&times;</button>
-        </div>
-        <form action="/upload" method="POST" enctype="multipart/form-data" class="p-4 space-y-4">
-            {% csrf_token %}
-            <input type="file" name="image_upload" required class="text-xs w-full border p-2 rounded">
-            <select name="category" class="w-full border rounded-lg p-2 text-sm outline-none">
-                {% for cat_key, cat_name in categories %}<option value="{{ cat_key }}">{{ cat_name }}</option>{% endfor %}
-            </select>
-            <div class="flex items-center gap-2">
-                <input type="checkbox" name="is_resource" id="is_resource" class="rounded">
-                <label for="is_resource" class="text-xs font-bold text-gray-700">Ressource Académique</label>
-            </div>
-            <textarea name="caption" rows="3" placeholder="Description..." class="w-full border rounded-lg p-2 text-sm outline-none"></textarea>
-            <button class="bg-blue-600 text-white w-full py-2.5 rounded-lg font-bold hover:bg-blue-700 transition">Publier</button>
-        </form>
-    </div>
-</div>
-
-<script>
-    function editComment(id, text) {
-        document.getElementById('editCommentForm').action = `/edit-comment/${id}/`;
-        document.getElementById('editCommentText').value = text;
-        document.getElementById('editCommentModal').classList.remove('hidden');
-    }
-
-    // LIKE & SAVE AJAX
-    document.querySelectorAll('.like-btn').forEach(b => b.addEventListener('click', function() {
-        const id = this.dataset.postId;
-        fetch('/like-post/', { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' }, body: `post_id=${id}` })
-        .then(r => r.json()).then(d => {
-            const i = document.getElementById(`like-icon-${id}`);
-            if(d.liked) { i.classList.replace('fa-regular', 'fa-solid'); i.classList.add('text-red-500'); }
-            else { i.classList.replace('fa-solid', 'fa-regular'); i.classList.remove('text-red-500'); }
-            document.getElementById(`likes-count-${id}`).innerText = d.count;
-        });
-    }));
-
-    document.querySelectorAll('.save-btn').forEach(b => b.addEventListener('click', function() {
-        const id = this.dataset.postId;
-        fetch(`/save-resource/${id}/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(r => r.json()).then(d => {
-            const i = document.getElementById(`save-icon-${id}`);
-            if(d.saved) { i.classList.replace('fa-regular', 'fa-solid'); i.classList.add('text-blue-600'); }
-            else { i.classList.replace('fa-solid', 'fa-regular'); i.classList.remove('text-blue-600'); }
-        });
-    }));
-</script>
-
-</body>
-</html> {% endcomment %}
-
-
-
-
-
-
-
-
-
-{% comment %} {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Knowledge Hub • SocialBook</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
-        .post-card { transition: transform 0.2s; }
-        body { padding-top: 70px; }
-        .notification-dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid white; }
-        .category-pill { transition: all 0.3s; }
-        .category-pill.active { background-color: #3b82f6; color: white; }
-        .resource-badge { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
-</head>
-
-<body class="bg-gray-50 text-gray-800">
-
-<nav class="bg-white border-b fixed top-0 w-full z-50 h-16 flex items-center">
-    <div class="max-w-5xl mx-auto w-full flex justify-between items-center px-4">
-        <a href="/" class="font-bold text-2xl tracking-tighter text-blue-600 flex items-center gap-2">
-            <i class="fa-solid fa-graduation-cap"></i> SocialBook
-        </a>
-        <form action="/" method="GET" class="hidden md:flex bg-gray-100 rounded-lg items-center px-3 py-1.5">
-            <i class="fa-solid fa-magnifying-glass text-gray-400 mr-2 text-sm"></i>
-            <input type="text" name="search" value="{{ search_query }}" placeholder="Rechercher une ressource..." class="bg-transparent text-sm focus:outline-none w-64">
-        </form>
-        <div class="flex items-center gap-6">
-            <a href="/" class="text-xl hover:text-blue-500"><i class="fa-solid fa-house"></i></a>
-            <div class="relative group py-2">
-                <button id="notifBtn" class="text-xl hover:text-blue-500 relative focus:outline-none">
-                    <i class="fa-regular fa-heart"></i>
-                    {% if unread_notifications_count > 0 %}<span id="notifDot" class="notification-dot"></span>{% endif %}
-                </button>
-                <div id="notifDropdown" class="absolute right-0 mt-1 w-80 bg-white border rounded-md shadow-lg hidden group-hover:block z-50 overflow-hidden">
-                    <div class="p-3 border-b font-bold text-sm">Notifications</div>
-                    <div class="max-h-96 overflow-y-auto">
-                        {% for notif in notifications %}
-                        <a href="{% if notif.notification_type == 'follow' %}/profile/{{ notif.sender.username }}{% else %}/#post-{{ notif.post.id }}{% endif %}" class="p-3 flex items-center gap-3 hover:bg-gray-50 border-b last:border-0 block">
-                            <img src="{{ notif.sender.profile.profileimg.url }}" class="w-10 h-10 rounded-full object-cover">
-                            <div class="flex-1"><p class="text-xs"><span class="font-bold">{{ notif.sender.username }}</span> {{ notif.notification_type }}ed your post.</p></div>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            <a href="/chat" class="text-xl hover:text-blue-500 relative">
-                <i class="fa-regular fa-paper-plane"></i>
-                {% if unread_messages_count > 0 %}<span class="notification-dot"></span>{% endif %}
-            </a>
-            <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="text-xl hover:text-blue-500"><i class="fa-regular fa-square-plus"></i></button>
-            <div class="relative group py-2"> 
-                <button class="flex items-center focus:outline-none"><img src="{{ user_profile.profileimg.url }}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"></button>
-                <div class="absolute right-0 mt-1 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block z-50">
-                    <div class="py-1">
-                        <a href="/profile/{{ user.username }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Mon Profil</a>
-                        <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Paramètres</a>
-                        <hr class="my-1">
-                        <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Déconnexion</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</nav>
-
-<main class="max-w-5xl mx-auto px-4 py-6">
-    <div class="flex gap-3 mb-8 overflow-x-auto pb-2 no-scrollbar">
-        <a href="/?category=all" class="category-pill px-4 py-1.5 rounded-full border bg-white text-sm font-medium hover:border-blue-400 {% if current_category == 'all' %}active{% endif %}">Tout</a>
-        {% for cat_key, cat_name in categories %}
-        <a href="/?category={{ cat_key }}" class="category-pill px-4 py-1.5 rounded-full border bg-white text-sm font-medium hover:border-blue-400 {% if current_category == cat_key %}active{% endif %}">{{ cat_name }}</a>
-        {% endfor %}
-    </div>
-
-    <div class="flex flex-col md:flex-row gap-8">
-        <div class="md:w-2/3 space-y-6">
-            {% for post in posts %}
-            <div id="post-{{ post.id }}" class="bg-white border rounded-xl overflow-hidden shadow-sm post-card {% if post.is_resource %}border-blue-200 ring-1 ring-blue-50{% endif %}">
-                <div class="flex items-center justify-between px-4 py-3">
-                    <div class="flex items-center gap-3">
-                        <img src="{{ post.user.profile.profileimg.url }}" class="w-9 h-9 rounded-full object-cover border">
-                        <div>
-                            <a href="/profile/{{ post.user.username }}" class="font-bold text-sm hover:underline">{{ post.user.username }}</a>
-                            <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">{{ post.get_category_display }}</p>
-                        </div>
-                    </div>
-                    {% if post.is_resource %}
-                    <span class="resource-badge text-[10px] text-white px-2 py-1 rounded-md font-bold uppercase">Ressource Académique</span>
-                    {% endif %}
-                </div>
-
-                <!-- AFFICHAGE DYNAMIQUE SELON LE TYPE DE FICHIER -->
-                <div class="w-full bg-black flex items-center justify-center overflow-hidden" style="min-height: 300px; max-height: 550px;">
-                    {% if post.is_image %}
-                        <img src="{{ post.file.url }}" class="w-full object-contain">
-                    {% elif post.is_video %}
-                        <video controls class="w-full max-h-[550px]">
-                            <source src="{{ post.file.url }}" type="video/mp4">
-                            Votre navigateur ne supporte pas la lecture de vidéos.
-                        </video>
-                    {% elif post.is_pdf %}
-                        <div class="bg-gray-100 w-full h-[400px] flex flex-col items-center justify-center p-10 text-center">
-                            <i class="fa-solid fa-file-pdf text-6xl text-red-500 mb-4"></i>
-                            <p class="font-bold text-gray-800 mb-4">Document PDF : {{ post.file.name|truncatechars:30 }}</p>
-                            <a href="{{ post.file.url }}" target="_blank" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition">Ouvrir le PDF</a>
-                        </div>
-                    {% else %}
-                        <div class="bg-gray-100 w-full h-[300px] flex flex-col items-center justify-center p-10 text-center">
-                            <i class="fa-solid fa-file-lines text-6xl text-blue-500 mb-4"></i>
-                            <p class="font-bold text-gray-800 mb-4">Document : {{ post.file.name|truncatechars:30 }}</p>
-                            <a href="{{ post.file.url }}" download class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 transition">Télécharger</a>
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="px-4 py-3">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-4">
-                            <button class="like-btn text-2xl focus:outline-none transform active:scale-125 transition" data-post-id="{{ post.id }}">
-                                <i id="like-icon-{{ post.id }}" class="fa-heart {% if post.is_liked %}fa-solid text-red-500{% else %}fa-regular text-gray-700 hover:text-red-400{% endif %}"></i>
-                            </button>
-                            <i class="fa-regular fa-comment text-2xl text-gray-700 cursor-pointer"></i>
-                        </div>
-                        <button class="save-btn text-xl focus:outline-none" data-post-id="{{ post.id }}">
-                            <i id="save-icon-{{ post.id }}" class="fa-bookmark {% if post.is_saved %}fa-solid text-blue-600{% else %}fa-regular text-gray-700 hover:text-blue-500{% endif %}"></i>
-                        </button>
-                    </div>
-                    <p class="text-sm font-bold mb-1"><span id="likes-count-{{ post.id }}">{{ post.no_of_likes }}</span> mentions j'aime</p>
-                    <p class="text-sm leading-relaxed"><span class="font-bold mr-2">{{ post.user.username }}</span>{{ post.caption }}</p>
-                    
-                    <div class="mt-4 space-y-2 border-t pt-3">
-                        {% for comment in post.comments.all %}
-                        <div class="flex justify-between items-start group">
-                            <p class="text-sm"><span class="font-bold mr-2">{{ comment.user.username }}</span>{{ comment.text }}</p>
-                            {% if comment.user == request.user %}
-                            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                                <button onclick="editComment('{{ comment.id }}', '{{ comment.text }}')" class="text-gray-400 hover:text-blue-500"><i class="fa-solid fa-pen text-[10px]"></i></button>
-                                <a href="/delete-comment/{{ comment.id }}/" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-trash text-[10px]"></i></a>
-                            </div>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <form action="/add-comment/{{ post.id }}/" method="POST" class="mt-4 flex items-center gap-3 border-t pt-3">
-                        {% csrf_token %}
-                        <input type="text" name="comment" placeholder="Ajouter un commentaire..." required class="flex-1 text-sm focus:outline-none py-1 bg-transparent">
-                        <button type="submit" class="text-blue-500 font-bold text-sm hover:text-blue-700">Publier</button>
-                    </form>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</main>
-
-<!-- MODAL UPLOAD MULTI-FORMAT -->
-<div id="uploadModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm">
-    <div class="bg-white rounded-xl w-96 overflow-hidden shadow-2xl">
-        <div class="border-b px-4 py-3 flex justify-between items-center bg-gray-50">
-            <span class="font-bold">Partager une ressource</span>
-            <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="text-2xl">&times;</button>
-        </div>
-        <form action="/upload" method="POST" enctype="multipart/form-data" class="p-4 space-y-4">
-            {% csrf_token %}
-            <div class="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center">
-                <input type="file" name="file_upload" required class="text-xs w-full">
-                <p class="text-[10px] text-gray-400 mt-2">Images, Vidéos, PDF, Docs acceptés</p>
-            </div>
-            <select name="category" class="w-full border rounded-lg p-2 text-sm outline-none">
-                {% for cat_key, cat_name in categories %}<option value="{{ cat_key }}">{{ cat_name }}</option>{% endfor %}
-            </select>
-            <div class="flex items-center gap-2">
-                <input type="checkbox" name="is_resource" id="is_resource" class="rounded">
-                <label for="is_resource" class="text-xs font-bold text-gray-700">Ressource Académique</label>
-            </div>
-            <textarea name="caption" rows="3" placeholder="Description..." class="w-full border rounded-lg p-2 text-sm outline-none"></textarea>
-            <button class="bg-blue-600 text-white w-full py-2.5 rounded-lg font-bold hover:bg-blue-700 transition">Publier</button>
-        </form>
-    </div>
-</div>
-
-<script>
-    // SCRIPTS AJAX (LIKE, SAVE, COMMENT) - IDENTIQUES À LA VERSION PRÉCÉDENTE
-</script>
-
-</body>
-</html> {% endcomment %}
-
-
-
-
-
-
-
-
-
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Knowledge Hub • SocialBook</title>
+    <title>Knowledge Hub • Academe</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <!-- PDF.js pour la visionneuse interactive -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
-        .post-card { transition: transform 0.2s; }
-        body { padding-top: 70px; }
-        .notification-dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid white; }
-        .category-pill { transition: all 0.3s; }
-        .category-pill.active { background-color: #3b82f6; color: white; }
-        .resource-badge { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap');
         
-        /* Styles PDF */
-        .pdf-container { position: relative; background: #525659; overflow: hidden; }
-        canvas { display: block; margin: 0 auto; max-width: 100%; height: auto !important; }
-        .pdf-controls { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 5px 15px; border-radius: 20px; display: flex; gap: 15px; align-items: center; z-index: 10; }
+        * { font-family: 'Inter', sans-serif; }
+        .heading-font { font-family: 'Playfair Display', serif; }
         
-        /* Animation Double Tap */
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .category-chip {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .category-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .category-chip.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .post-card {
+            transition: all 0.3s ease;
+        }
+        
+        .post-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .floating-action {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 50;
+        }
+        
+        .floating-action:hover {
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+        }
+        
+        .sidebar-link {
+            transition: all 0.2s;
+        }
+        
+        .sidebar-link:hover {
+            background: rgba(102, 126, 234, 0.1);
+            padding-left: 1.5rem;
+        }
+        
+        .media-container { position: relative; }
         .like-animation {
             position: absolute;
             top: 50%;
@@ -499,61 +125,133 @@
             z-index: 20;
             text-shadow: 0 0 20px rgba(0,0,0,0.3);
         }
-        .animate-heart {
-            animation: heart-pop 0.8s ease-out;
-        }
+        .animate-heart { animation: heart-pop 0.8s ease-out; }
         @keyframes heart-pop {
             0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
             30% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.9; }
-            50% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
             100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
         }
+        
+        .pdf-container { position: relative; background: #525659; overflow: hidden; }
+        canvas { display: block; margin: 0 auto; max-width: 100%; height: auto !important; }
+        .pdf-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            z-index: 10;
+        }
+        
+        .search-box {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50px;
+        }
+        
+        .scroll-smooth { scroll-behavior: smooth; }
     </style>
 </head>
 
-<body class="bg-gray-50 text-gray-800">
+<body class="scroll-smooth">
 
-<nav class="bg-white border-b fixed top-0 w-full z-50 h-16 flex items-center">
-    <div class="max-w-5xl mx-auto w-full flex justify-between items-center px-4">
-        <a href="/" class="font-bold text-2xl tracking-tighter text-blue-600 flex items-center gap-2">
-            <i class="fa-solid fa-graduation-cap"></i> SocialBook
-        </a>
-        <form action="/" method="GET" class="hidden md:flex bg-gray-100 rounded-lg items-center px-3 py-1.5">
-            <i class="fa-solid fa-magnifying-glass text-gray-400 mr-2 text-sm"></i>
-            <input type="text" name="search" value="{{ search_query }}" placeholder="Rechercher une ressource..." class="bg-transparent text-sm focus:outline-none w-64">
-        </form>
-        <div class="flex items-center gap-6">
-            <a href="/" class="text-xl hover:text-blue-500"><i class="fa-solid fa-house"></i></a>
-            <div class="relative group py-2">
-                <button id="notifBtn" class="text-xl hover:text-blue-500 relative focus:outline-none">
-                    <i class="fa-regular fa-heart"></i>
-                    {% if unread_notifications_count > 0 %}<span id="notifDot" class="notification-dot"></span>{% endif %}
-                </button>
-                <div id="notifDropdown" class="absolute right-0 mt-1 w-80 bg-white border rounded-md shadow-lg hidden group-hover:block z-50 overflow-hidden">
-                    <div class="p-3 border-b font-bold text-sm">Notifications</div>
-                    <div class="max-h-96 overflow-y-auto">
-                        {% for notif in notifications %}
-                        <a href="{% if notif.notification_type == 'follow' %}/profile/{{ notif.sender.username }}{% else %}/#post-{{ notif.post.id }}{% endif %}" class="p-3 flex items-center gap-3 hover:bg-gray-50 border-b last:border-0 block">
-                            <img src="{{ notif.sender.profile.profileimg.url }}" class="w-10 h-10 rounded-full object-cover">
-                            <div class="flex-1"><p class="text-xs"><span class="font-bold">{{ notif.sender.username }}</span> {{ notif.notification_type }}ed your post.</p></div>
-                        </a>
-                        {% endfor %}
+<!-- Modern Navigation -->
+<nav class="glass-nav fixed top-0 w-full z-50 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-3">
+        <div class="flex items-center justify-between">
+            <!-- Logo -->
+            <a href="/" class="flex items-center gap-3 group">
+                <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition">
+                    <i class="fas fa-graduation-cap text-white text-xl"></i>
+                </div>
+                <span class="heading-font text-2xl font-bold gradient-text">Academe</span>
+            </a>
+            
+            <!-- Search -->
+            <form action="/" method="GET" class="hidden md:block flex-1 max-w-xl mx-8">
+                <div class="search-box flex items-center px-4 py-2 shadow-sm">
+                    <i class="fas fa-search text-gray-400 mr-3"></i>
+                    <input 
+                        type="text" 
+                        name="search" 
+                        value="{{ search_query }}" 
+                        placeholder="Search knowledge, people, resources..." 
+                        class="bg-transparent flex-1 outline-none text-gray-700 placeholder-gray-400"
+                    >
+                </div>
+            </form>
+            
+            <!-- Actions -->
+            <div class="flex items-center gap-6">
+                <a href="/" class="text-gray-700 hover:text-purple-600 transition text-xl">
+                    <i class="fas fa-home"></i>
+                </a>
+                
+                <!-- Notifications -->
+                <div class="relative group">
+                    <button class="text-gray-700 hover:text-purple-600 transition text-xl relative">
+                        <i class="far fa-bell"></i>
+                        {% if unread_notifications_count > 0 %}
+                        <span class="notification-badge">{{ unread_notifications_count }}</span>
+                        {% endif %}
+                    </button>
+                    
+                    <div class="absolute right-0 mt-4 w-96 glass-card rounded-2xl shadow-2xl hidden group-hover:block">
+                        <div class="p-4 border-b border-gray-200">
+                            <h3 class="font-bold text-gray-800">Notifications</h3>
+                        </div>
+                        <div class="max-h-96 overflow-y-auto">
+                            {% for notif in notifications %}
+                            <a href="{% if notif.notification_type == 'follow' %}/profile/{{ notif.sender.username }}{% else %}/#post-{{ notif.post.id }}{% endif %}" 
+                               class="p-4 flex items-center gap-3 hover:bg-purple-50 transition border-b last:border-0">
+                                <img src="{{ notif.sender.profile.profileimg.url }}" class="w-12 h-12 rounded-full object-cover">
+                                <div class="flex-1">
+                                    <p class="text-sm"><span class="font-bold">{{ notif.sender.username }}</span> {{ notif.notification_type }}ed your post</p>
+                                    <p class="text-xs text-gray-400 mt-1">{{ notif.created_at|timesince }} ago</p>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
-            </div>
-            <a href="/chat" class="text-xl hover:text-blue-500 relative">
-                <i class="fa-regular fa-paper-plane"></i>
-                {% if unread_messages_count > 0 %}<span class="notification-dot"></span>{% endif %}
-            </a>
-            <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="text-xl hover:text-blue-500"><i class="fa-regular fa-square-plus"></i></button>
-            <div class="relative group py-2"> 
-                <button class="flex items-center focus:outline-none"><img src="{{ user_profile.profileimg.url }}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"></button>
-                <div class="absolute right-0 mt-1 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block z-50">
-                    <div class="py-1">
-                        <a href="/profile/{{ user.username }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Mon Profil</a>
-                        <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Paramètres</a>
-                        <hr class="my-1">
-                        <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Déconnexion</a>
+                
+                <!-- Messages -->
+                <a href="/chat" class="text-gray-700 hover:text-purple-600 transition text-xl relative">
+                    <i class="far fa-comment-dots"></i>
+                    {% if unread_messages_count > 0 %}
+                    <span class="notification-badge">{{ unread_messages_count }}</span>
+                    {% endif %}
+                </a>
+                
+                <!-- Profile Menu -->
+                <div class="relative group">
+                    <button class="flex items-center gap-2 hover:opacity-80 transition">
+                        <img src="{{ user_profile.profileimg.url }}" class="w-10 h-10 rounded-full object-cover ring-2 ring-purple-200">
+                        <i class="fas fa-chevron-down text-gray-600 text-xs"></i>
+                    </button>
+                    
+                    <div class="absolute right-0 mt-4 w-56 glass-card rounded-xl shadow-2xl hidden group-hover:block">
+                        <div class="p-3 border-b border-gray-200">
+                            <p class="font-bold text-gray-800">{{ user.username }}</p>
+                            <p class="text-xs text-gray-500">{{ user.email }}</p>
+                        </div>
+                        <div class="py-2">
+                            <a href="/profile/{{ user.username }}" class="sidebar-link block px-4 py-2 text-gray-700 hover:text-purple-600">
+                                <i class="fas fa-user mr-2"></i> My Profile
+                            </a>
+                            <a href="/settings" class="sidebar-link block px-4 py-2 text-gray-700 hover:text-purple-600">
+                                <i class="fas fa-cog mr-2"></i> Settings
+                            </a>
+                            <hr class="my-2">
+                            <a href="/logout" class="sidebar-link block px-4 py-2 text-red-600 hover:bg-red-50">
+                                <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -561,127 +259,282 @@
     </div>
 </nav>
 
-<main class="max-w-5xl mx-auto px-4 py-6">
-    <div class="flex gap-3 mb-8 overflow-x-auto pb-2 no-scrollbar">
-        <a href="/?category=all" class="category-pill px-4 py-1.5 rounded-full border bg-white text-sm font-medium hover:border-blue-400 {% if current_category == 'all' %}active{% endif %}">Tout</a>
-        {% for cat_key, cat_name in categories %}
-        <a href="/?category={{ cat_key }}" class="category-pill px-4 py-1.5 rounded-full border bg-white text-sm font-medium hover:border-blue-400 {% if current_category == cat_key %}active{% endif %}">{{ cat_name }}</a>
-        {% endfor %}
-    </div>
-
-    <div class="flex flex-col md:flex-row gap-8">
-        <div class="md:w-2/3 space-y-6 mx-auto">
-            {% for post in posts %}
-            <div id="post-{{ post.id }}" class="bg-white border rounded-xl overflow-hidden shadow-sm post-card {% if post.is_resource %}border-blue-200 ring-1 ring-blue-50{% endif %}">
-                <div class="flex items-center justify-between px-4 py-3">
-                    <div class="flex items-center gap-3">
-                        <img src="{{ post.user.profile.profileimg.url }}" class="w-9 h-9 rounded-full object-cover border">
-                        <div>
-                            <a href="/profile/{{ post.user.username }}" class="font-bold text-sm hover:underline">{{ post.user.username }}</a>
-                            <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">{{ post.get_category_display }}</p>
-                        </div>
-                    </div>
-                    {% if post.is_resource %}
-                    <span class="resource-badge text-[10px] text-white px-2 py-1 rounded-md font-bold uppercase">Ressource Académique</span>
+<div class="pt-20 pb-10">
+    <div class="max-w-7xl mx-auto px-4">
+        
+        <!-- Categories Section -->
+        <div class="mb-8">
+            <div class="flex items-center gap-3 overflow-x-auto pb-4 no-scrollbar">
+                <a href="/?category=all" class="category-chip px-6 py-2.5 rounded-full glass-card shadow-md text-sm font-medium whitespace-nowrap {% if current_category == 'all' %}active{% endif %}">
+                    <i class="fas fa-th mr-2"></i>All Topics
+                </a>
+                {% for cat_key, cat_name in categories %}
+                <a href="/?category={{ cat_key }}" class="category-chip px-6 py-2.5 rounded-full glass-card shadow-md text-sm font-medium whitespace-nowrap {% if current_category == cat_key %}active{% endif %}">
+                    {% if cat_key == 'math' %}<i class="fas fa-square-root-alt mr-2"></i>
+                    {% elif cat_key == 'cs' %}<i class="fas fa-code mr-2"></i>
+                    {% elif cat_key == 'physics' %}<i class="fas fa-atom mr-2"></i>
+                    {% elif cat_key == 'bio' %}<i class="fas fa-dna mr-2"></i>
+                    {% else %}<i class="fas fa-tag mr-2"></i>
                     {% endif %}
-                </div>
-
-                <!-- CONTENEUR MÉDIA AVEC DOUBLE TAP ET AUTOPLAY -->
-                <div class="relative w-full bg-black flex items-center justify-center overflow-hidden min-h-[300px] media-container" data-post-id="{{ post.id }}">
-                    <i class="fa-solid fa-heart like-animation" id="pop-heart-{{ post.id }}"></i>
-                    
-                    {% if post.is_image %}
-                        <img src="{{ post.file.url }}" class="w-full object-contain cursor-pointer double-tap-target">
-                    {% elif post.is_video %}
-                        <video class="w-full max-h-[550px] video-player cursor-pointer double-tap-target" loop muted autoplay playsinline>
-                            <source src="{{ post.file.url }}" type="video/mp4">
-                        </video>
-                    {% elif post.is_pdf %}
-                        <div class="pdf-container w-full h-[500px]" data-url="{{ post.file.url }}" data-id="{{ post.id }}">
-                            <canvas id="pdf-canvas-{{ post.id }}"></canvas>
-                            <div class="pdf-controls text-xs">
-                                <button onclick="prevPage('{{ post.id }}')"><i class="fa-solid fa-chevron-left"></i></button>
-                                <span>Page <span id="page-num-{{ post.id }}">1</span> / <span id="page-count-{{ post.id }}">?</span></span>
-                                <button onclick="nextPage('{{ post.id }}')"><i class="fa-solid fa-chevron-right"></i></button>
+                    {{ cat_name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Main Feed -->
+            <div class="lg:col-span-2 space-y-6">
+                {% for post in posts %}
+                <div id="post-{{ post.id }}" class="glass-card rounded-2xl shadow-lg overflow-hidden post-card">
+                    <!-- Post Header -->
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <img src="{{ post.user.profile.profileimg.url }}" class="w-12 h-12 rounded-full object-cover ring-2 ring-purple-200">
+                            <div>
+                                <a href="/profile/{{ post.user.username }}" class="font-bold text-gray-800 hover:text-purple-600">{{ post.user.username }}</a>
+                                <div class="flex items-center gap-2 text-xs text-gray-500">
+                                    <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-medium">{{ post.get_category_display }}</span>
+                                    <span>•</span>
+                                    <span>{{ post.created_at|timesince }} ago</span>
+                                </div>
                             </div>
                         </div>
-                    {% else %}
-                        <div class="bg-gray-100 w-full h-[200px] flex flex-col items-center justify-center p-6 text-center">
-                            <i class="fa-solid fa-file-lines text-5xl text-blue-500 mb-3"></i>
-                            <p class="text-sm font-bold mb-3">{{ post.file.name }}</p>
-                            <a href="{{ post.file.url }}" download class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold">Télécharger</a>
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="px-4 py-3">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-4">
-                            <button class="like-btn text-2xl focus:outline-none transform active:scale-125 transition" data-post-id="{{ post.id }}">
-                                <i id="like-icon-{{ post.id }}" class="fa-heart {% if post.is_liked %}fa-solid text-red-500{% else %}fa-regular text-gray-700 hover:text-red-400{% endif %}"></i>
+                        {% if post.is_resource %}
+                        <span class="px-3 py-1 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs rounded-full font-bold shadow-lg">
+                            <i class="fas fa-star mr-1"></i>Academic Resource
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Post Media -->
+                    <div class="relative media-container bg-gray-900" style="min-height: 300px; max-height: 600px;">
+                        <i class="fas fa-heart like-animation" id="pop-heart-{{ post.id }}"></i>
+                        
+                        {% if post.is_image %}
+                            <img src="{{ post.file.url }}" class="w-full h-full object-contain double-tap-target cursor-pointer">
+                        {% elif post.is_video %}
+                            <video class="w-full h-full video-player double-tap-target cursor-pointer" loop muted autoplay playsinline>
+                                <source src="{{ post.file.url }}" type="video/mp4">
+                            </video>
+                        {% elif post.is_pdf %}
+                            <div class="pdf-container h-[500px]" data-url="{{ post.file.url }}" data-id="{{ post.id }}">
+                                <canvas id="pdf-canvas-{{ post.id }}"></canvas>
+                                <div class="pdf-controls text-xs">
+                                    <button onclick="prevPage('{{ post.id }}')"><i class="fas fa-chevron-left"></i></button>
+                                    <span>Page <span id="page-num-{{ post.id }}">1</span> / <span id="page-count-{{ post.id }}">?</span></span>
+                                    <button onclick="nextPage('{{ post.id }}')"><i class="fas fa-chevron-right"></i></button>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="flex items-center justify-center h-64 bg-gray-100">
+                                <div class="text-center">
+                                    <i class="fas fa-file-alt text-6xl text-purple-500 mb-4"></i>
+                                    <p class="text-gray-700 font-medium mb-4">{{ post.file.name }}</p>
+                                    <a href="{{ post.file.url }}" download class="px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-full font-medium hover:shadow-lg transition">
+                                        <i class="fas fa-download mr-2"></i>Download
+                                    </a>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Post Actions -->
+                    <div class="p-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-5">
+                                <button class="like-btn group flex items-center gap-2" data-post-id="{{ post.id }}">
+                                    <i id="like-icon-{{ post.id }}" class="fa-heart text-2xl {% if post.is_liked %}fas text-red-500{% else %}far text-gray-600 group-hover:text-red-500{% endif %} transition"></i>
+                                    <span id="likes-count-{{ post.id }}" class="text-sm font-medium text-gray-700">{{ post.no_of_likes }}</span>
+                                </button>
+                                <button class="group flex items-center gap-2">
+                                    <i class="far fa-comment text-2xl text-gray-600 group-hover:text-purple-600 transition"></i>
+                                    <span class="text-sm font-medium text-gray-700">{{ post.comments.count }}</span>
+                                </button>
+                            </div>
+                            <button class="save-btn" data-post-id="{{ post.id }}">
+                                <i id="save-icon-{{ post.id }}" class="fa-bookmark text-xl {% if post.is_saved %}fas text-purple-600{% else %}far text-gray-600 hover:text-purple-600{% endif %} transition"></i>
                             </button>
-                            <i class="fa-regular fa-comment text-2xl text-gray-700 cursor-pointer"></i>
                         </div>
-                        <button class="save-btn text-xl focus:outline-none" data-post-id="{{ post.id }}">
-                            <i id="save-icon-{{ post.id }}" class="fa-bookmark {% if post.is_saved %}fa-solid text-blue-600{% else %}fa-regular text-gray-700 hover:text-blue-500{% endif %}"></i>
-                        </button>
-                    </div>
-                    <p class="text-sm font-bold mb-1"><span id="likes-count-{{ post.id }}">{{ post.no_of_likes }}</span> mentions j'aime</p>
-                    <p class="text-sm leading-relaxed"><span class="font-bold mr-2">{{ post.user.username }}</span>{{ post.caption }}</p>
-                    
-                    <div class="mt-4 space-y-2 border-t pt-3">
-                        {% for comment in post.comments.all %}
-                        <div class="flex justify-between items-start group">
-                            <p class="text-sm"><span class="font-bold mr-2">{{ comment.user.username }}</span>{{ comment.text }}</p>
-                            {% if comment.user == request.user %}
-                            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                                <button onclick="editComment('{{ comment.id }}', '{{ comment.text }}')" class="text-gray-400 hover:text-blue-500"><i class="fa-solid fa-pen text-[10px]"></i></button>
-                                <a href="/delete-comment/{{ comment.id }}/" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-trash text-[10px]"></i></a>
+                        
+                        <!-- Caption -->
+                        <p class="text-gray-800 leading-relaxed mb-4">
+                            <span class="font-bold">{{ post.user.username }}</span> {{ post.caption }}
+                        </p>
+                        
+                        <!-- Comments -->
+                        <div class="space-y-3 max-h-40 overflow-y-auto mb-4">
+                            {% for comment in post.comments.all %}
+                            <div class="flex items-start gap-2 group">
+                                <img src="{{ comment.user.profile.profileimg.url }}" class="w-8 h-8 rounded-full object-cover">
+                                <div class="flex-1">
+                                    <p class="text-sm"><span class="font-bold">{{ comment.user.username }}</span> {{ comment.text }}</p>
+                                </div>
+                                {% if comment.user == request.user %}
+                                <div class="opacity-0 group-hover:opacity-100 transition flex gap-2">
+                                    <button class="text-gray-400 hover:text-purple-600"><i class="fas fa-edit text-xs"></i></button>
+                                    <a href="/delete-comment/{{ comment.id }}/" class="text-gray-400 hover:text-red-600"><i class="fas fa-trash text-xs"></i></a>
+                                </div>
+                                {% endif %}
                             </div>
-                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Add Comment -->
+                        <form action="/add-comment/{{ post.id }}/" method="POST" class="flex items-center gap-3 border-t pt-3">
+                            {% csrf_token %}
+                            <input type="text" name="comment" placeholder="Add a thoughtful comment..." required class="flex-1 text-sm outline-none bg-transparent">
+                            <button type="submit" class="text-purple-600 font-bold text-sm hover:text-purple-700">Post</button>
+                        </form>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="glass-card rounded-2xl p-12 text-center">
+                    <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 text-lg">No posts found. Start sharing knowledge!</p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Sidebar -->
+            <div class="hidden lg:block space-y-6">
+                <!-- User Stats -->
+                <div class="glass-card rounded-2xl p-6 shadow-lg">
+                    <div class="flex items-center gap-4 mb-4">
+                        <img src="{{ user_profile.profileimg.url }}" class="w-16 h-16 rounded-full object-cover ring-4 ring-purple-200">
+                        <div>
+                            <h3 class="font-bold text-gray-800">{{ user.username }}</h3>
+                            <p class="text-sm text-gray-500">{{ user.email }}</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <p class="text-2xl font-bold gradient-text">42</p>
+                            <p class="text-xs text-gray-500">Posts</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold gradient-text">1.2K</p>
+                            <p class="text-xs text-gray-500">Followers</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold gradient-text">89</p>
+                            <p class="text-xs text-gray-500">Following</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Suggestions -->
+                <div class="glass-card rounded-2xl p-6 shadow-lg">
+                    <h3 class="font-bold text-gray-800 mb-4 flex items-center justify-between">
+                        <span>Suggested Scholars</span>
+                        <i class="fas fa-user-graduate text-purple-600"></i>
+                    </h3>
+                    <div class="space-y-4">
+                        {% for suggestion in suggestions_username_profile_list %}
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <img src="{{ suggestion.profileimg.url }}" class="w-10 h-10 rounded-full object-cover">
+                                <div>
+                                    <a href="/profile/{{ suggestion.user.username }}" class="font-medium text-gray-800 hover:text-purple-600 text-sm">{{ suggestion.user.username }}</a>
+                                    <p class="text-xs text-gray-500">{{ suggestion.location|default:"Scholar" }}</p>
+                                </div>
+                            </div>
+                            <a href="/profile/{{ suggestion.user.username }}" class="px-4 py-1 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs rounded-full font-medium hover:shadow-lg transition">
+                                Follow
+                            </a>
                         </div>
                         {% endfor %}
                     </div>
-                    <form action="/add-comment/{{ post.id }}/" method="POST" class="mt-4 flex items-center gap-3 border-t pt-3">
-                        {% csrf_token %}
-                        <input type="text" name="comment" placeholder="Ajouter un commentaire..." required class="flex-1 text-sm focus:outline-none py-1 bg-transparent">
-                        <button type="submit" class="text-blue-500 font-bold text-sm hover:text-blue-700">Publier</button>
-                    </form>
+                </div>
+                
+                <!-- Trending Topics -->
+                <div class="glass-card rounded-2xl p-6 shadow-lg">
+                    <h3 class="font-bold text-gray-800 mb-4 flex items-center justify-between">
+                        <span>Trending Topics</span>
+                        <i class="fas fa-fire text-orange-500"></i>
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium text-gray-700">#QuantumPhysics</span>
+                            <span class="text-xs text-gray-500">2.4K posts</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium text-gray-700">#MachineLearning</span>
+                            <span class="text-xs text-gray-500">1.8K posts</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium text-gray-700">#Calculus</span>
+                            <span class="text-xs text-gray-500">1.5K posts</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            {% endfor %}
         </div>
     </div>
-</main>
+</div>
 
-<!-- MODAL UPLOAD MULTI-FORMAT -->
-<div id="uploadModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm">
-    <div class="bg-white rounded-xl w-96 overflow-hidden shadow-2xl">
-        <div class="border-b px-4 py-3 flex justify-between items-center bg-gray-50">
-            <span class="font-bold">Partager une ressource</span>
-            <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="text-2xl">&times;</button>
+<!-- Floating Action Button -->
+<div class="floating-action" onclick="document.getElementById('uploadModal').classList.remove('hidden')">
+    <i class="fas fa-plus"></i>
+</div>
+
+<!-- Upload Modal -->
+<div id="uploadModal" class="hidden fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+    <div class="glass-card rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div class="bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
+            <div class="flex items-center justify-between">
+                <h2 class="text-2xl font-bold">Share Knowledge</h2>
+                <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="text-white hover:bg-white hover:bg-opacity-20 rounded-full w-10 h-10 flex items-center justify-center transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <p class="text-purple-100 text-sm mt-2">Upload resources, share insights, inspire others</p>
         </div>
-        <form action="/upload" method="POST" enctype="multipart/form-data" class="p-4 space-y-4">
+        
+        <form action="/upload" method="POST" enctype="multipart/form-data" class="p-6 space-y-6">
             {% csrf_token %}
-            <div class="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center">
-                <input type="file" name="file_upload" required class="text-xs w-full">
-                <p class="text-[10px] text-gray-400 mt-2">Images, Vidéos, PDF, Docs acceptés</p>
+            
+            <div class="border-2 border-dashed border-purple-300 rounded-2xl p-8 text-center hover:border-purple-500 transition cursor-pointer">
+                <i class="fas fa-cloud-upload-alt text-5xl text-purple-400 mb-3"></i>
+                <input type="file" name="file_upload" required class="hidden" id="fileInput">
+                <label for="fileInput" class="cursor-pointer">
+                    <p class="text-gray-700 font-medium mb-1">Click to upload or drag and drop</p>
+                    <p class="text-xs text-gray-500">Images, Videos, PDFs, Documents</p>
+                </label>
             </div>
-            <select name="category" class="w-full border rounded-lg p-2 text-sm outline-none">
-                {% for cat_key, cat_name in categories %}<option value="{{ cat_key }}">{{ cat_name }}</option>{% endfor %}
-            </select>
-            <div class="flex items-center gap-2">
-                <input type="checkbox" name="is_resource" id="is_resource" class="rounded">
-                <label for="is_resource" class="text-xs font-bold text-gray-700">Ressource Académique</label>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <select name="category" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none">
+                    {% for cat_key, cat_name in categories %}
+                    <option value="{{ cat_key }}">{{ cat_name }}</option>
+                    {% endfor %}
+                </select>
             </div>
-            <textarea name="caption" rows="3" placeholder="Description..." class="w-full border rounded-lg p-2 text-sm outline-none"></textarea>
-            <button class="bg-blue-600 text-white w-full py-2.5 rounded-lg font-bold hover:bg-blue-700 transition">Publier</button>
+            
+            <div class="flex items-center gap-3 p-4 bg-purple-50 rounded-xl">
+                <input type="checkbox" name="is_resource" id="is_resource" class="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500">
+                <label for="is_resource" class="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <i class="fas fa-star text-purple-600"></i>
+                    Mark as Academic Resource
+                </label>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea name="caption" rows="4" placeholder="Share your insights, explain the resource..." class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none"></textarea>
+            </div>
+            
+            <button type="submit" class="w-full py-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold rounded-xl hover:shadow-xl transition transform hover:scale-[1.02]">
+                <i class="fas fa-paper-plane mr-2"></i>Share with Community
+            </button>
         </form>
     </div>
 </div>
 
 <script>
-    // GESTION PDF.JS
+    // PDF.js setup
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     let pdfDocs = {}; let pageNums = {};
@@ -689,7 +542,8 @@
     document.querySelectorAll('.pdf-container').forEach(container => {
         const url = container.dataset.url; const id = container.dataset.id; pageNums[id] = 1;
         pdfjsLib.getDocument(url).promise.then(pdfDoc => {
-            pdfDocs[id] = pdfDoc; document.getElementById(`page-count-${id}`).textContent = pdfDoc.numPages;
+            pdfDocs[id] = pdfDoc; 
+            document.getElementById(`page-count-${id}`).textContent = pdfDoc.numPages;
             renderPage(id, 1);
         });
     });
@@ -697,18 +551,22 @@
     function renderPage(id, num) {
         const pdfDoc = pdfDocs[id];
         pdfDoc.getPage(num).then(page => {
-            const canvas = document.getElementById(`pdf-canvas-${id}`); const ctx = canvas.getContext('2d');
-            const viewport = page.getViewport({ scale: 1.5 }); canvas.height = viewport.height; canvas.width = viewport.width;
-            page.render({ canvasContext: ctx, viewport: viewport }); document.getElementById(`page-num-${id}`).textContent = num;
+            const canvas = document.getElementById(`pdf-canvas-${id}`); 
+            const ctx = canvas.getContext('2d');
+            const viewport = page.getViewport({ scale: 1.5 }); 
+            canvas.height = viewport.height; 
+            canvas.width = viewport.width;
+            page.render({ canvasContext: ctx, viewport: viewport }); 
+            document.getElementById(`page-num-${id}`).textContent = num;
         });
     }
     window.prevPage = (id) => { if (pageNums[id] <= 1) return; pageNums[id]--; renderPage(id, pageNums[id]); }
     window.nextPage = (id) => { if (pageNums[id] >= pdfDocs[id].numPages) return; pageNums[id]++; renderPage(id, pageNums[id]); }
 
-    // GESTION DOUBLE TAP & LIKE
+    // Double tap like functionality
     document.querySelectorAll('.media-container').forEach(container => {
         let lastTap = 0;
-        const postId = container.dataset.postId;
+        const postId = container.closest('[id^="post-"]').id.split('-')[1];
         const target = container.querySelector('.double-tap-target');
 
         if (target) {
@@ -718,11 +576,8 @@
                 if (tapLength < 300 && tapLength > 0) {
                     handleLike(postId, true);
                     e.preventDefault();
-                } else {
-                    // Si c'est une vidéo, on gère le son sur un simple clic
-                    if (this.tagName === 'VIDEO') {
-                        this.muted = !this.muted;
-                    }
+                } else if (this.tagName === 'VIDEO') {
+                    this.muted = !this.muted;
                 }
                 lastTap = currentTime;
             });
@@ -732,42 +587,70 @@
     function handleLike(postId, showAnimation = false) {
         fetch('/like-post/', {
             method: 'POST',
-            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            headers: { 
+                'X-CSRFToken': '{{ csrf_token }}', 
+                'Content-Type': 'application/x-www-form-urlencoded', 
+                'X-Requested-With': 'XMLHttpRequest' 
+            },
             body: `post_id=${postId}`
         })
         .then(r => r.json()).then(data => {
             const icon = document.getElementById(`like-icon-${postId}`);
             const count = document.getElementById(`likes-count-${postId}`);
-            if(data.liked) { icon.classList.replace('fa-regular', 'fa-solid'); icon.classList.add('text-red-500'); }
-            else { icon.classList.replace('fa-solid', 'fa-regular'); icon.classList.remove('text-red-500'); }
+            
+            if(data.liked) { 
+                icon.classList.replace('far', 'fas'); 
+                icon.classList.add('text-red-500'); 
+            } else { 
+                icon.classList.replace('fas', 'far'); 
+                icon.classList.remove('text-red-500'); 
+            }
             count.innerText = data.count;
+            
             if (showAnimation && data.liked) {
                 const heart = document.getElementById(`pop-heart-${postId}`);
-                heart.classList.remove('animate-heart'); void heart.offsetWidth; heart.classList.add('animate-heart');
+                heart.classList.remove('animate-heart'); 
+                void heart.offsetWidth; 
+                heart.classList.add('animate-heart');
             }
         });
     }
 
-    document.querySelectorAll('.like-btn').forEach(btn => btn.addEventListener('click', function() { handleLike(this.dataset.postId); }));
-
-    // SAVE RESOURCE AJAX
-    document.querySelectorAll('.save-btn').forEach(b => b.addEventListener('click', function() {
-        const id = this.dataset.postId;
-        fetch(`/save-resource/${id}/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(r => r.json()).then(d => {
-            const i = document.getElementById(`save-icon-${id}`);
-            if(d.saved) { i.classList.replace('fa-regular', 'fa-solid'); i.classList.add('text-blue-600'); }
-            else { i.classList.replace('fa-solid', 'fa-regular'); i.classList.remove('text-blue-600'); }
+    // Like button click
+    document.querySelectorAll('.like-btn').forEach(btn => {
+        btn.addEventListener('click', function() { 
+            handleLike(this.dataset.postId); 
         });
-    }));
+    });
+
+    // Save resource
+    document.querySelectorAll('.save-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.postId;
+            fetch(`/save-resource/${id}/`, { 
+                headers: { 'X-Requested-With': 'XMLHttpRequest' } 
+            })
+            .then(r => r.json()).then(data => {
+                const icon = document.getElementById(`save-icon-${id}`);
+                if(data.saved) { 
+                    icon.classList.replace('far', 'fas'); 
+                    icon.classList.add('text-purple-600'); 
+                } else { 
+                    icon.classList.replace('fas', 'far'); 
+                    icon.classList.remove('text-purple-600'); 
+                }
+            });
+        });
+    });
+
+    // File input styling
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            const fileName = e.target.files[0].name;
+            e.target.parentElement.querySelector('p').textContent = fileName;
+        }
+    });
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
-

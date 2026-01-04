@@ -1,555 +1,322 @@
-{% comment %} {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ user_object.username }} • SocialBook</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <style>
-        body { padding-top: 70px; }
-        .profile-tab.active { border-top: 2px solid #1f2937; color: #1f2937; font-weight: bold; }
-        .notification-dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid white; }
-        .modal-content { max-height: 90vh; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* Styles PDF Modale */
-        .pdf-container { position: relative; background: #525659; overflow: hidden; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-        canvas { display: block; margin: 0 auto; max-width: 100%; height: auto !important; }
-        .pdf-controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 8px 20px; border-radius: 30px; display: flex; gap: 20px; align-items: center; z-index: 30; }
-        
-        /* Animation Double Tap */
-        .like-animation {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0);
-            color: white;
-            font-size: 100px;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 40;
-            text-shadow: 0 0 30px rgba(0,0,0,0.5);
-        }
-        .animate-heart { animation: heart-pop 0.8s ease-out; }
-        @keyframes heart-pop {
-            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-            30% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.9; }
-            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
-        }
-    </style>
-</head>
-
-<body class="bg-gray-50 text-gray-800">
-
-<nav class="bg-white border-b fixed top-0 w-full z-50 h-16 flex items-center">
-    <div class="max-w-5xl mx-auto w-full flex justify-between items-center px-4">
-        <a href="/" class="font-bold text-2xl tracking-tighter text-blue-600 flex items-center gap-2">
-            <i class="fa-solid fa-graduation-cap"></i> SocialBook
-        </a>
-        <div class="flex items-center gap-6">
-            <a href="/" class="text-xl hover:text-blue-500"><i class="fa-solid fa-house"></i></a>
-            <a href="/chat" class="text-xl hover:text-blue-500 relative">
-                <i class="fa-regular fa-paper-plane"></i>
-                {% if unread_messages_count > 0 %}<span class="notification-dot"></span>{% endif %}
-            </a>
-            <div class="relative group py-2"> 
-                <button class="flex items-center focus:outline-none">
-                    <img src="{{ user_profile.profileimg.url }}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm">
-                </button>
-                <div class="absolute right-0 mt-1 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block z-50">
-                    <div class="py-1">
-                        <a href="/profile/{{ user.username }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profil</a>
-                        <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Paramètres</a>
-                        <hr class="my-1">
-                        <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Déconnexion</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</nav>
-
-<main class="max-w-4xl mx-auto px-4 py-8">
-    <!-- HEADER PROFIL -->
-    <div class="flex flex-col md:flex-row items-center gap-10 mb-12">
-        <img src="{{ user_profile_target.profileimg.url }}" class="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-sm">
-        <div class="flex-1 text-center md:text-left">
-            <div class="flex flex-col md:flex-row items-center gap-5 mb-6">
-                <h2 class="text-2xl font-light">{{ user_object.username }}</h2>
-                {% if user.username == user_object.username %}
-                    <a href="/settings" class="bg-white border px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-gray-50 transition">Modifier le profil</a>
-                {% else %}
-                    <div class="flex gap-2">
-                        <form action="/follow" method="POST">
-                            {% csrf_token %}
-                            <input type="hidden" name="follower" value="{{ user.username }}">
-                            <input type="hidden" name="user" value="{{ user_object.username }}">
-                            <button type="submit" class="px-6 py-1.5 rounded-lg text-sm font-semibold transition {% if button_text == 'Unfollow' %}bg-gray-200 text-gray-800{% else %}bg-blue-500 text-white{% endif %}">
-                                {{ button_text }}
-                            </button>
-                        </form>
-                        <a href="/chat/{{ user_object.username }}" class="bg-white border px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-gray-50 transition">Message</a>
-                    </div>
-                {% endif %}
-            </div>
-            <div class="flex gap-8 mb-4 justify-center md:justify-start">
-                <span><b class="font-semibold">{{ user_post_length }}</b> publications</span>
-                <span><b class="font-semibold">{{ user_followers }}</b> abonnés</span>
-                <span><b class="font-semibold">{{ user_following }}</b> abonnements</span>
-            </div>
-            <div class="text-sm">
-                <p class="font-bold">{{ user_object.first_name }} {{ user_object.last_name }}</p>
-                <p class="text-gray-600">{{ user_profile_target.bio }}</p>
-                <p class="text-blue-600 font-medium mt-1"><i class="fa-solid fa-location-dot mr-1"></i>{{ user_profile_target.location }}</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- ONGLETS -->
-    <div class="border-t flex justify-center gap-12">
-        <button onclick="switchTab('posts')" id="tab-posts" class="profile-tab active py-4 text-xs uppercase tracking-widest flex items-center gap-2">
-            <i class="fa-solid fa-table-cells"></i> Publications
-        </button>
-        <button onclick="switchTab('saved')" id="tab-saved" class="profile-tab py-4 text-xs uppercase tracking-widest flex items-center gap-2">
-            <i class="fa-solid fa-bookmark"></i> Bibliothèque
-        </button>
-    </div>
-
-    <!-- GRILLE DE PUBLICATIONS -->
-    <div id="content-posts" class="grid grid-cols-3 gap-1 md:gap-6 mt-4">
-        {% for post in user_posts %}
-        <div onclick="openModal('{{ post.id }}', '{{ post.file.url }}', '{{ post.user.username }}', '{{ post.user.profile.profileimg.url }}', '{{ post.caption|escapejs }}', '{{ post.no_of_likes }}', '{{ post.is_liked|yesno:'true,false' }}', '{{ post.is_saved|yesno:'true,false' }}', '{{ post.get_category_display }}', '{{ post.is_video|yesno:'true,false' }}', '{{ post.is_pdf|yesno:'true,false' }}', '{{ post.is_image|yesno:'true,false' }}')" 
-             class="relative aspect-square group cursor-pointer overflow-hidden rounded-lg shadow-sm bg-gray-200">
-            
-            {% if post.is_image %}
-                <img src="{{ post.file.url }}" class="w-full h-full object-cover transition group-hover:scale-105">
-            {% elif post.is_video %}
-                <video class="w-full h-full object-cover"><source src="{{ post.file.url }}"></video>
-                <div class="absolute top-2 right-2 text-white text-sm"><i class="fa-solid fa-video"></i></div>
-            {% elif post.is_pdf %}
-                <div class="w-full h-full flex items-center justify-center bg-gray-100"><i class="fa-solid fa-file-pdf text-4xl text-red-500"></i></div>
-            {% else %}
-                <div class="w-full h-full flex items-center justify-center bg-gray-100"><i class="fa-solid fa-file-lines text-4xl text-blue-500"></i></div>
-            {% endif %}
-
-            <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white gap-6">
-                <span><i class="fa-solid fa-heart mr-1"></i> {{ post.no_of_likes }}</span>
-                <span><i class="fa-solid fa-comment mr-1"></i> {{ post.comments.count }}</span>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
-    <!-- GRILLE DE LA BIBLIOTHÈQUE -->
-    <div id="content-saved" class="hidden grid grid-cols-3 gap-1 md:gap-6 mt-4">
-        {% for saved in saved_resources %}
-        <div onclick="openModal('{{ saved.post.id }}', '{{ saved.post.file.url }}', '{{ saved.post.user.username }}', '{{ saved.post.user.profile.profileimg.url }}', '{{ saved.post.caption|escapejs }}', '{{ saved.post.no_of_likes }}', '{{ saved.post.is_liked|yesno:'true,false' }}', '{{ saved.post.is_saved|yesno:'true,false' }}', '{{ saved.post.get_category_display }}', '{{ saved.post.is_video|yesno:'true,false' }}', '{{ saved.post.is_pdf|yesno:'true,false' }}', '{{ saved.post.is_image|yesno:'true,false' }}')" 
-             class="relative aspect-square group cursor-pointer overflow-hidden rounded-lg shadow-sm border-2 border-blue-100 bg-gray-200">
-            {% if saved.post.is_image %}
-                <img src="{{ saved.post.file.url }}" class="w-full h-full object-cover">
-            {% else %}
-                <div class="w-full h-full flex items-center justify-center bg-gray-100"><i class="fa-solid fa-bookmark text-4xl text-blue-500"></i></div>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-</main>
-
-<!-- MODALE D'AGRANDISSEMENT MULTI-FORMAT -->
-<div id="postModal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
-    <button onclick="closeModal()" class="absolute top-5 right-5 text-white text-4xl">&times;</button>
-    <div class="bg-white w-full max-w-5xl flex flex-col md:flex-row rounded-lg overflow-hidden modal-content shadow-2xl h-full md:h-auto">
-        
-        <!-- Zone Média (Gauche) -->
-        <div class="md:w-2/3 bg-black flex items-center justify-center relative media-container">
-            <i class="fa-solid fa-heart like-animation" id="modalPopHeart"></i>
-            
-            <div id="modalMediaContent" class="w-full h-full flex items-center justify-center overflow-hidden">
-                <!-- Le contenu dynamique sera injecté ici -->
-            </div>
-        </div>
-
-        <!-- Zone Infos (Droite) -->
-        <div class="md:w-1/3 flex flex-col h-full bg-white border-l">
-            <div class="p-4 border-b flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <img id="modalUserImg" src="" class="w-8 h-8 rounded-full object-cover">
-                    <div>
-                        <span id="modalUsername" class="font-bold text-sm"></span>
-                        <p id="modalCategory" class="text-[10px] text-blue-600 font-bold uppercase"></p>
-                    </div>
-                </div>
-            </div>
-            <div class="flex-1 overflow-y-auto p-4 no-scrollbar space-y-4">
-                <p class="text-sm"><span id="modalUsernameDesc" class="font-bold mr-2"></span><span id="modalCaption"></span></p>
-                <div id="modalComments" class="space-y-3 pt-4 border-t">
-                    <!-- Commentaires chargés ici -->
-                </div>
-            </div>
-            <div class="p-4 border-t space-y-3">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <button id="modalLikeBtn" class="text-2xl focus:outline-none transform active:scale-125 transition">
-                            <i id="modalLikeIcon" class="fa-heart fa-regular text-gray-700"></i>
-                        </button>
-                        <i class="fa-regular fa-comment text-2xl text-gray-700"></i>
-                    </div>
-                    <button id="modalSaveBtn" class="text-xl focus:outline-none">
-                        <i id="modalSaveIcon" class="fa-bookmark fa-regular text-gray-700"></i>
-                    </button>
-                </div>
-                <p class="text-sm font-bold"><span id="modalLikesCount">0</span> j'aime</p>
-                <form id="modalCommentForm" method="POST" class="flex items-center gap-2 border-t pt-3">
-                    {% csrf_token %}
-                    <input type="text" name="comment" placeholder="Ajouter un commentaire..." required class="flex-1 text-sm focus:outline-none py-1">
-                    <button type="submit" class="text-blue-500 font-bold text-sm">Publier</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    const pdfjsLib = window['pdfjs-dist/build/pdf'];
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-    let currentPostId = null;
-    let pdfDoc = null;
-    let pageNum = 1;
-
-    function openModal(id, fileUrl, user, userImg, caption, likes, isLiked, isSaved, category, isVideo, isPdf, isImage) {
-        currentPostId = id;
-        const mediaZone = document.getElementById('modalMediaContent');
-        mediaZone.innerHTML = ''; // Clear previous content
-
-        if (isImage === 'true') {
-            mediaZone.innerHTML = `<img src="${fileUrl}" class="max-w-full max-h-full object-contain double-tap-target">`;
-        } else if (isVideo === 'true') {
-            mediaZone.innerHTML = `<video class="w-full max-h-full video-player double-tap-target" loop muted autoplay playsinline><source src="${fileUrl}" type="video/mp4"></video>`;
-        } else if (isPdf === 'true') {
-            mediaZone.innerHTML = `
-                <div class="pdf-container">
-                    <canvas id="modal-pdf-canvas"></canvas>
-                    <div class="pdf-controls">
-                        <button onclick="modalPrevPage()"><i class="fa-solid fa-chevron-left"></i></button>
-                        <span>Page <span id="modal-page-num">1</span> / <span id="modal-page-count">?</span></span>
-                        <button onclick="modalNextPage()"><i class="fa-solid fa-chevron-right"></i></button>
-                    </div>
-                </div>`;
-            loadPdf(fileUrl);
-        } else {
-            mediaZone.innerHTML = `<div class="text-white text-center"><i class="fa-solid fa-file-lines text-6xl mb-4"></i><br><a href="${fileUrl}" download class="bg-blue-600 px-4 py-2 rounded font-bold">Télécharger</a></div>`;
-        }
-
-        document.getElementById('modalUserImg').src = userImg;
-        document.getElementById('modalUsername').innerText = user;
-        document.getElementById('modalUsernameDesc').innerText = user;
-        document.getElementById('modalCaption').innerText = caption;
-        document.getElementById('modalLikesCount').innerText = likes;
-        document.getElementById('modalCategory').innerText = category;
-        
-        updateIcons(isLiked === 'true', isSaved === 'true');
-        setupDoubleTap();
-
-        document.getElementById('modalCommentForm').action = `/add-comment/${id}/`;
-        document.getElementById('postModal').classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function loadPdf(url) {
-        pdfjsLib.getDocument(url).promise.then(doc => {
-            pdfDoc = doc;
-            document.getElementById('modal-page-count').textContent = doc.numPages;
-            pageNum = 1;
-            renderModalPage(1);
-        });
-    }
-
-    function renderModalPage(num) {
-        pdfDoc.getPage(num).then(page => {
-            const canvas = document.getElementById('modal-pdf-canvas');
-            const ctx = canvas.getContext('2d');
-            const viewport = page.getViewport({ scale: 1.5 });
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            page.render({ canvasContext: ctx, viewport: viewport });
-            document.getElementById('modal-page-num').textContent = num;
-        });
-    }
-
-    window.modalPrevPage = () => { if (pageNum <= 1) return; pageNum--; renderModalPage(pageNum); }
-    window.modalNextPage = () => { if (pageNum >= pdfDoc.numPages) return; pageNum++; renderModalPage(pageNum); }
-
-    function setupDoubleTap() {
-        const target = document.querySelector('.double-tap-target');
-        let lastTap = 0;
-        if (target) {
-            target.addEventListener('click', function(e) {
-                const now = new Date().getTime();
-                if (now - lastTap < 300) {
-                    handleModalLike(true);
-                } else if (this.tagName === 'VIDEO') {
-                    this.muted = !this.muted;
-                }
-                lastTap = now;
-            });
-        }
-    }
-
-    function handleModalLike(showAnim = false) {
-        fetch('/like-post/', { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' }, body: `post_id=${currentPostId}` })
-        .then(r => r.json()).then(d => {
-            updateIcons(d.liked, null);
-            document.getElementById('modalLikesCount').innerText = d.count;
-            if (showAnim && d.liked) {
-                const h = document.getElementById('modalPopHeart');
-                h.classList.remove('animate-heart'); void h.offsetWidth; h.classList.add('animate-heart');
-            }
-        });
-    }
-
-    function updateIcons(liked, saved) {
-        if (liked !== null) {
-            const i = document.getElementById('modalLikeIcon');
-            if(liked) { i.classList.replace('fa-regular', 'fa-solid'); i.classList.add('text-red-500'); }
-            else { i.classList.replace('fa-solid', 'fa-regular'); i.classList.remove('text-red-500'); }
-        }
-        if (saved !== null) {
-            const i = document.getElementById('modalSaveIcon');
-            if(saved) { i.classList.replace('fa-regular', 'fa-solid'); i.classList.add('text-blue-600'); }
-            else { i.classList.replace('fa-solid', 'fa-regular'); i.classList.remove('text-blue-600'); }
-        }
-    }
-
-    document.getElementById('modalLikeBtn').onclick = () => handleModalLike(false);
-    document.getElementById('modalSaveBtn').onclick = () => {
-        fetch(`/save-resource/${currentPostId}/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(r => r.json()).then(d => updateIcons(null, d.saved));
-    };
-
-    function closeModal() { document.getElementById('postModal').classList.add('hidden'); document.body.style.overflow = 'auto'; }
-    function switchTab(tab) {
-        document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
-        document.getElementById('tab-' + tab).classList.add('active');
-        document.getElementById('content-posts').classList.toggle('hidden', tab !== 'posts');
-        document.getElementById('content-saved').classList.toggle('hidden', tab !== 'saved');
-    }
-</script>
-
-</body>
-</html> {% endcomment %}
-
-
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ user_object.username }} • SocialBook</title>
+    <title>{{ user_object.username }} • Academe</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
-        body { padding-top: 70px; }
-        .profile-tab.active { border-top: 2px solid #1f2937; color: #1f2937; font-weight: bold; }
-        .notification-dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid white; }
-        .modal-content { max-height: 90vh; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .pdf-container { position: relative; background: #525659; overflow: hidden; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-        canvas { display: block; margin: 0 auto; max-width: 100%; height: auto !important; }
-        .pdf-controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 8px 20px; border-radius: 30px; display: flex; gap: 20px; align-items: center; z-index: 30; }
-        .like-animation { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); color: white; font-size: 100px; opacity: 0; pointer-events: none; z-index: 40; text-shadow: 0 0 30px rgba(0,0,0,0.5); }
-        .animate-heart { animation: heart-pop 0.8s ease-out; }
-        @keyframes heart-pop { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 30% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap');
+        
+        * { font-family: 'Inter', sans-serif; }
+        .heading-font { font-family: 'Playfair Display', serif; }
+        
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .profile-cover {
+            height: 250px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+        }
+        
+        .profile-avatar {
+            position: absolute;
+            bottom: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .tab-button {
+            position: relative;
+            padding: 1rem 2rem;
+            transition: all 0.3s;
+        }
+        
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px 3px 0 0;
+        }
+        
+        .gallery-item {
+            position: relative;
+            aspect-ratio: 1;
+            overflow: hidden;
+            border-radius: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .gallery-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .gallery-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .gallery-item:hover .gallery-overlay {
+            opacity: 1;
+        }
     </style>
 </head>
 
-<body class="bg-gray-50 text-gray-800">
+<body>
 
-<nav class="bg-white border-b fixed top-0 w-full z-50 h-16 flex items-center">
-    <div class="max-w-5xl mx-auto w-full flex justify-between items-center px-4">
-        <a href="/" class="font-bold text-2xl tracking-tighter text-blue-600 flex items-center gap-2">
-            <i class="fa-solid fa-graduation-cap"></i> SocialBook
-        </a>
-        <div class="flex items-center gap-6">
-            <a href="/" class="text-xl hover:text-blue-500"><i class="fa-solid fa-house"></i></a>
-            <a href="/chat" class="text-xl hover:text-blue-500 relative">
-                <i class="fa-regular fa-paper-plane"></i>
-                {% if unread_messages_count > 0 %}<span class="notification-dot"></span>{% endif %}
-            </a>
-            <div class="relative group py-2"> 
-                <button class="flex items-center focus:outline-none"><img src="{{ user_profile.profileimg.url }}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"></button>
-                <div class="absolute right-0 mt-1 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block z-50">
-                    <div class="py-1">
-                        <a href="/profile/{{ request.user.username }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profil</a>
-                        <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Paramètres</a>
-                        <hr class="my-1">
-                        <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Déconnexion</a>
-                    </div>
+<!-- Navigation -->
+<nav class="glass-nav fixed top-0 w-full z-50 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-3">
+        <div class="flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-graduation-cap text-white text-xl"></i>
                 </div>
+                <span class="heading-font text-2xl font-bold gradient-text">Academe</span>
+            </a>
+            
+            <div class="flex items-center gap-6">
+                <a href="/" class="text-gray-700 hover:text-purple-600 transition text-xl">
+                    <i class="fas fa-home"></i>
+                </a>
+                <a href="/chat" class="text-gray-700 hover:text-purple-600 transition text-xl">
+                    <i class="far fa-comment-dots"></i>
+                </a>
+                <a href="/settings" class="text-gray-700 hover:text-purple-600 transition text-xl">
+                    <i class="fas fa-cog"></i>
+                </a>
             </div>
         </div>
     </div>
 </nav>
 
-<main class="max-w-4xl mx-auto px-4 py-8">
-    <div class="flex flex-col md:flex-row items-center gap-10 mb-12">
-        <img src="{{ user_profile_target.profileimg.url }}" class="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-sm">
-        <div class="flex-1 text-center md:text-left">
-            <div class="flex flex-col md:flex-row items-center gap-5 mb-6">
-                <h2 class="text-2xl font-light">{{ user_object.username }}</h2>
+<div class="pt-16">
+    <!-- Profile Header -->
+    <div class="profile-cover">
+        <div class="max-w-6xl mx-auto px-4 h-full flex items-end pb-8">
+            <div class="profile-avatar">
+                <img src="{{ user_profile_target.profileimg.url }}" class="w-32 h-32 rounded-full object-cover ring-8 ring-white shadow-2xl">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Profile Info -->
+    <div class="max-w-6xl mx-auto px-4 mt-20">
+        <div class="glass-card rounded-2xl shadow-lg p-8 mb-8">
+            <div class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ user_object.username }}</h1>
+                <p class="text-gray-600 mb-4">{{ user_profile_target.bio|default:"No bio yet" }}</p>
+                <div class="flex items-center justify-center gap-2 text-sm text-gray-500 mb-6">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>{{ user_profile_target.location|default:"Location not set" }}</span>
+                </div>
+                
                 {% if user.username == user_object.username %}
-                    <a href="/settings" class="bg-white border px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-gray-50 transition">Modifier le profil</a>
+                    <a href="/settings" class="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-full font-medium hover:shadow-xl transition">
+                        <i class="fas fa-edit"></i>
+                        Edit Profile
+                    </a>
                 {% else %}
-                    <div class="flex gap-2">
-                        <form action="/follow" method="POST">
+                    <div class="flex items-center justify-center gap-4">
+                        <form action="/follow" method="POST" class="inline">
                             {% csrf_token %}
                             <input type="hidden" name="follower" value="{{ user.username }}">
                             <input type="hidden" name="user" value="{{ user_object.username }}">
-                            <button type="submit" class="px-6 py-1.5 rounded-lg text-sm font-semibold transition {% if button_text == 'Unfollow' %}bg-gray-200 text-gray-800{% else %}bg-blue-500 text-white{% endif %}">{{ button_text }}</button>
+                            <button type="submit" class="px-8 py-3 rounded-full font-medium transition {% if button_text == 'Unfollow' %}bg-gray-200 text-gray-800 hover:bg-gray-300{% else %}bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:shadow-xl{% endif %}">
+                                {% if button_text == 'Unfollow' %}
+                                    <i class="fas fa-user-check mr-2"></i>Following
+                                {% else %}
+                                    <i class="fas fa-user-plus mr-2"></i>Follow
+                                {% endif %}
+                            </button>
                         </form>
-                        <a href="/chat/{{ user_object.username }}" class="bg-white border px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-gray-50 transition">Message</a>
+                        <a href="/chat/{{ user_object.username }}" class="px-8 py-3 bg-white border-2 border-purple-500 text-purple-600 rounded-full font-medium hover:bg-purple-50 transition">
+                            <i class="fas fa-envelope mr-2"></i>Message
+                        </a>
                     </div>
                 {% endif %}
             </div>
-            <div class="flex gap-8 mb-4 justify-center md:justify-start">
-                <span><b class="font-semibold">{{ user_post_length }}</b> publications</span>
-                <span><b class="font-semibold">{{ user_followers }}</b> abonnés</span>
-                <span><b class="font-semibold">{{ user_following }}</b> abonnements</span>
-            </div>
-            <div class="text-sm">
-                <p class="font-bold">{{ user_object.first_name }} {{ user_object.last_name }}</p>
-                <p class="text-gray-600">{{ user_profile_target.bio }}</p>
-                <p class="text-blue-600 font-medium mt-1"><i class="fa-solid fa-location-dot mr-1"></i>{{ user_profile_target.location }}</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="border-t flex justify-center gap-12">
-        <button onclick="switchTab('posts')" id="tab-posts" class="profile-tab active py-4 text-xs uppercase tracking-widest flex items-center gap-2"><i class="fa-solid fa-table-cells"></i> Publications</button>
-        <button onclick="switchTab('saved')" id="tab-saved" class="profile-tab py-4 text-xs uppercase tracking-widest flex items-center gap-2"><i class="fa-solid fa-bookmark"></i> Bibliothèque</button>
-    </div>
-
-    <div id="content-posts" class="grid grid-cols-3 gap-1 md:gap-6 mt-4">
-        {% for post in user_posts %}
-        <div onclick="openModal('{{ post.id }}', '{{ post.file.url }}', '{{ post.user.username }}', '{{ post.user.profile.profileimg.url }}', '{{ post.caption|escapejs }}', '{{ post.no_of_likes }}', '{{ post.is_liked|yesno:'true,false' }}', '{{ post.is_saved|yesno:'true,false' }}', '{{ post.get_category_display }}', '{{ post.is_video|yesno:'true,false' }}', '{{ post.is_pdf|yesno:'true,false' }}', '{{ post.is_image|yesno:'true,false' }}')" 
-             class="relative aspect-square group cursor-pointer overflow-hidden rounded-lg shadow-sm bg-gray-200">
-            {% if post.is_image %}
-                <img src="{{ post.file.url }}" class="w-full h-full object-cover transition group-hover:scale-105">
-            {% elif post.is_video %}
-                <video class="w-full h-full object-cover"><source src="{{ post.file.url }}"></video>
-                <div class="absolute top-2 right-2 text-white text-sm"><i class="fa-solid fa-video"></i></div>
-            {% elif post.is_pdf %}
-                <div class="w-full h-full flex items-center justify-center bg-gray-100"><i class="fa-solid fa-file-pdf text-4xl text-red-500"></i></div>
-            {% else %}
-                <div class="w-full h-full flex items-center justify-center bg-gray-100"><i class="fa-solid fa-file-lines text-4xl text-blue-500"></i></div>
-            {% endif %}
-            <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white gap-6">
-                <span><i class="fa-solid fa-heart mr-1"></i> {{ post.no_of_likes }}</span>
-                <span><i class="fa-solid fa-comment mr-1"></i> {{ post.comments.count }}</span>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
-    <div id="content-saved" class="hidden grid grid-cols-3 gap-1 md:gap-6 mt-4">
-        {% for saved in saved_resources %}
-        <div onclick="openModal('{{ saved.post.id }}', '{{ saved.post.file.url }}', '{{ saved.post.user.username }}', '{{ saved.post.user.profile.profileimg.url }}', '{{ saved.post.caption|escapejs }}', '{{ saved.post.no_of_likes }}', '{{ saved.post.is_liked|yesno:'true,false' }}', '{{ saved.post.is_saved|yesno:'true,false' }}', '{{ saved.post.get_category_display }}', '{{ saved.post.is_video|yesno:'true,false' }}', '{{ saved.post.is_pdf|yesno:'true,false' }}', '{{ saved.post.is_image|yesno:'true,false' }}')" 
-             class="relative aspect-square group cursor-pointer overflow-hidden rounded-lg shadow-sm border-2 border-blue-100 bg-gray-200">
-            {% if saved.post.is_image %}
-                <img src="{{ saved.post.file.url }}" class="w-full h-full object-cover">
-            {% else %}
-                <div class="w-full h-full flex items-center justify-center bg-gray-100"><i class="fa-solid fa-bookmark text-4xl text-blue-500"></i></div>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-</main>
-
-<div id="postModal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4">
-    <button onclick="closeModal()" class="absolute top-5 right-5 text-white text-4xl hover:text-gray-300">&times;</button>
-    <div class="bg-white w-full max-w-5xl flex flex-col md:flex-row rounded-lg overflow-hidden modal-content shadow-2xl h-full md:h-auto">
-        <div class="md:w-2/3 bg-black flex items-center justify-center relative media-container">
-            <i class="fa-solid fa-heart like-animation" id="modalPopHeart"></i>
-            <div id="modalMediaContent" class="w-full h-full flex items-center justify-center overflow-hidden"></div>
-        </div>
-        <div class="md:w-1/3 flex flex-col h-full bg-white border-l">
-            <div class="p-4 border-b flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <img id="modalUserImg" src="" class="w-8 h-8 rounded-full object-cover">
-                    <div><span id="modalUsername" class="font-bold text-sm"></span><p id="modalCategory" class="text-[10px] text-blue-600 font-bold uppercase"></p></div>
+            
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-8 text-center pt-6 border-t border-gray-200">
+                <div>
+                    <p class="text-3xl font-bold gradient-text">{{ user_post_length }}</p>
+                    <p class="text-sm text-gray-500 mt-1">Posts</p>
+                </div>
+                <div>
+                    <p class="text-3xl font-bold gradient-text">{{ user_followers }}</p>
+                    <p class="text-sm text-gray-500 mt-1">Followers</p>
+                </div>
+                <div>
+                    <p class="text-3xl font-bold gradient-text">{{ user_following }}</p>
+                    <p class="text-sm text-gray-500 mt-1">Following</p>
                 </div>
             </div>
-            <div class="flex-1 overflow-y-auto p-4 no-scrollbar space-y-4">
-                <p class="text-sm"><span id="modalUsernameDesc" class="font-bold mr-2"></span><span id="modalCaption"></span></p>
-                <div id="modalComments" class="space-y-3 pt-4 border-t"></div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="glass-card rounded-2xl shadow-lg mb-8 overflow-hidden">
+            <div class="flex justify-center border-b border-gray-200">
+                <button onclick="switchTab('posts')" id="tab-posts" class="tab-button active font-medium text-gray-700">
+                    <i class="fas fa-th mr-2"></i>Posts
+                </button>
+                <button onclick="switchTab('saved')" id="tab-saved" class="tab-button font-medium text-gray-500">
+                    <i class="fas fa-bookmark mr-2"></i>Library
+                </button>
             </div>
-            <div class="p-4 border-t space-y-3">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <button id="modalLikeBtn" class="text-2xl focus:outline-none transform active:scale-125 transition"><i id="modalLikeIcon" class="fa-heart fa-regular text-gray-700"></i></button>
-                        <i class="fa-regular fa-comment text-2xl text-gray-700"></i>
+        </div>
+        
+        <!-- Gallery -->
+        <div id="content-posts" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
+            {% for post in user_posts %}
+            <div class="gallery-item glass-card" onclick="openModal('{{ post.id }}', '{{ post.file.url }}', '{{ post.user.username }}', '{{ post.user.profile.profileimg.url }}', '{{ post.caption|escapejs }}', '{{ post.no_of_likes }}', '{{ post.is_liked|yesno:'true,false' }}', '{{ post.is_saved|yesno:'true,false' }}', '{{ post.get_category_display }}', '{{ post.is_video|yesno:'true,false' }}', '{{ post.is_pdf|yesno:'true,false' }}', '{{ post.is_image|yesno:'true,false' }}')">
+                {% if post.is_image %}
+                    <img src="{{ post.file.url }}" class="w-full h-full object-cover">
+                {% elif post.is_video %}
+                    <video class="w-full h-full object-cover"><source src="{{ post.file.url }}"></video>
+                    <div class="absolute top-3 right-3 w-10 h-10 bg-black bg-opacity-60 rounded-full flex items-center justify-center">
+                        <i class="fas fa-play text-white text-sm"></i>
                     </div>
-                    <button id="modalSaveBtn" class="text-xl focus:outline-none"><i id="modalSaveIcon" class="fa-bookmark fa-regular text-gray-700"></i></button>
+                {% elif post.is_pdf %}
+                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-100 to-red-200">
+                        <i class="fas fa-file-pdf text-6xl text-red-500"></i>
+                    </div>
+                {% else %}
+                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200">
+                        <i class="fas fa-file-alt text-6xl text-blue-500"></i>
+                    </div>
+                {% endif %}
+                
+                <div class="gallery-overlay">
+                    <div class="text-white text-center">
+                        <i class="fas fa-heart text-2xl mb-1"></i>
+                        <p class="font-bold">{{ post.no_of_likes }}</p>
+                    </div>
+                    <div class="text-white text-center">
+                        <i class="fas fa-comment text-2xl mb-1"></i>
+                        <p class="font-bold">{{ post.comments.count }}</p>
+                    </div>
                 </div>
-                <p class="text-sm font-bold"><span id="modalLikesCount">0</span> j'aime</p>
-                <form id="modalCommentForm" method="POST" class="flex items-center gap-2 border-t pt-3">
-                    {% csrf_token %}<input type="text" name="comment" placeholder="Ajouter un commentaire..." required class="flex-1 text-sm focus:outline-none py-1">
-                    <button type="submit" class="text-blue-500 font-bold text-sm">Publier</button>
-                </form>
+                
+                {% if post.is_resource %}
+                <div class="absolute top-3 left-3 px-2 py-1 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs rounded-full font-bold">
+                    <i class="fas fa-star"></i>
+                </div>
+                {% endif %}
             </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Saved Resources -->
+        <div id="content-saved" class="hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
+            {% for saved in saved_resources %}
+            <div class="gallery-item glass-card" onclick="openModal('{{ saved.post.id }}', '{{ saved.post.file.url }}', '{{ saved.post.user.username }}', '{{ saved.post.user.profile.profileimg.url }}', '{{ saved.post.caption|escapejs }}', '{{ saved.post.no_of_likes }}', '{{ saved.post.is_liked|yesno:'true,false' }}', '{{ saved.post.is_saved|yesno:'true,false' }}', '{{ saved.post.get_category_display }}', '{{ saved.post.is_video|yesno:'true,false' }}', '{{ saved.post.is_pdf|yesno:'true,false' }}', '{{ saved.post.is_image|yesno:'true,false' }}')">
+                {% if saved.post.is_image %}
+                    <img src="{{ saved.post.file.url }}" class="w-full h-full object-cover">
+                {% else %}
+                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-indigo-200">
+                        <i class="fas fa-bookmark text-6xl text-purple-500"></i>
+                    </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal (simplified - same structure as index.html) -->
+<div id="postModal" class="hidden fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[100] p-4">
+    <button onclick="closeModal()" class="absolute top-5 right-5 text-white text-4xl hover:text-gray-300">&times;</button>
+    <div class="glass-card rounded-3xl w-full max-w-6xl flex flex-col md:flex-row overflow-hidden shadow-2xl">
+        <!-- Modal content here - same as index.html -->
+        <div class="md:w-2/3 bg-black flex items-center justify-center">
+            <div id="modalMediaContent"></div>
+        </div>
+        <div class="md:w-1/3 p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <img id="modalUserImg" src="" class="w-12 h-12 rounded-full">
+                <div>
+                    <p id="modalUsername" class="font-bold"></p>
+                    <p id="modalCategory" class="text-xs text-purple-600"></p>
+                </div>
+            </div>
+            <p id="modalCaption" class="text-gray-700 mb-4"></p>
+            <div class="flex items-center justify-between">
+                <button id="modalLikeBtn" class="text-2xl"><i id="modalLikeIcon" class="far fa-heart"></i></button>
+                <button id="modalSaveBtn" class="text-xl"><i id="modalSaveIcon" class="far fa-bookmark"></i></button>
+            </div>
+            <p class="text-sm font-bold mt-2"><span id="modalLikesCount">0</span> likes</p>
         </div>
     </div>
 </div>
 
 <script>
-    const pdfjsLib = window['pdfjs-dist/build/pdf'];
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    let currentPostId = null; let pdfDoc = null; let pageNum = 1;
-
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('tab-' + tab).classList.add('active');
+        document.getElementById('content-posts').classList.toggle('hidden', tab !== 'posts');
+        document.getElementById('content-saved').classList.toggle('hidden', tab !== 'saved');
+    }
+    
     function openModal(id, fileUrl, user, userImg, caption, likes, isLiked, isSaved, category, isVideo, isPdf, isImage) {
-        currentPostId = id; const mediaZone = document.getElementById('modalMediaContent'); mediaZone.innerHTML = '';
-        if (isImage === 'true') { mediaZone.innerHTML = `<img src="${fileUrl}" class="max-w-full max-h-full object-contain double-tap-target">`; }
-        else if (isVideo === 'true') { mediaZone.innerHTML = `<video class="w-full max-h-full video-player double-tap-target" loop muted autoplay playsinline><source src="${fileUrl}" type="video/mp4"></video>`; }
-        else if (isPdf === 'true') { mediaZone.innerHTML = `<div class="pdf-container"><canvas id="modal-pdf-canvas"></canvas><div class="pdf-controls"><button onclick="modalPrevPage()"><i class="fa-solid fa-chevron-left"></i></button><span>Page <span id="modal-page-num">1</span> / <span id="modal-page-count">?</span></span><button onclick="modalNextPage()"><i class="fa-solid fa-chevron-right"></i></button></div></div>`; loadPdf(fileUrl); }
-        else { mediaZone.innerHTML = `<div class="text-white text-center"><i class="fa-solid fa-file-lines text-6xl mb-4"></i><br><a href="${fileUrl}" download class="bg-blue-600 px-4 py-2 rounded font-bold">Télécharger</a></div>`; }
-        document.getElementById('modalUserImg').src = userImg; document.getElementById('modalUsername').innerText = user;
-        document.getElementById('modalUsernameDesc').innerText = user; document.getElementById('modalCaption').innerText = caption;
-        document.getElementById('modalLikesCount').innerText = likes; document.getElementById('modalCategory').innerText = category;
-        updateIcons(isLiked === 'true', isSaved === 'true'); setupDoubleTap();
-        document.getElementById('modalCommentForm').action = `/add-comment/${id}/`;
-        document.getElementById('postModal').classList.remove('hidden'); document.body.style.overflow = 'hidden';
+        document.getElementById('postModal').classList.remove('hidden');
+        document.getElementById('modalUserImg').src = userImg;
+        document.getElementById('modalUsername').innerText = user;
+        document.getElementById('modalCaption').innerText = caption;
+        document.getElementById('modalLikesCount').innerText = likes;
+        document.getElementById('modalCategory').innerText = category;
+        
+        const mediaContent = document.getElementById('modalMediaContent');
+        if (isImage === 'true') {
+            mediaContent.innerHTML = `<img src="${fileUrl}" class="max-w-full max-h-[80vh] object-contain">`;
+        } else if (isVideo === 'true') {
+            mediaContent.innerHTML = `<video controls class="max-w-full max-h-[80vh]"><source src="${fileUrl}"></video>`;
+        } else if (isPdf === 'true') {
+            mediaContent.innerHTML = `<embed src="${fileUrl}" type="application/pdf" class="w-full h-[80vh]">`;
+        } else {
+            mediaContent.innerHTML = `<div class="text-white text-center p-12"><i class="fas fa-file-alt text-6xl mb-4"></i><p class="mb-4">Document</p><a href="${fileUrl}" download class="px-6 py-2 bg-purple-600 rounded-full">Download</a></div>`;
+        }
     }
-
-    function loadPdf(url) { pdfjsLib.getDocument(url).promise.then(doc => { pdfDoc = doc; document.getElementById('modal-page-count').textContent = doc.numPages; pageNum = 1; renderModalPage(1); }); }
-    function renderModalPage(num) { pdfDoc.getPage(num).then(page => { const canvas = document.getElementById('modal-pdf-canvas'); const ctx = canvas.getContext('2d'); const viewport = page.getViewport({ scale: 1.5 }); canvas.height = viewport.height; canvas.width = viewport.width; page.render({ canvasContext: ctx, viewport: viewport }); document.getElementById('modal-page-num').textContent = num; }); }
-    window.modalPrevPage = () => { if (pageNum <= 1) return; pageNum--; renderModalPage(pageNum); }
-    window.modalNextPage = () => { if (pageNum >= pdfDoc.numPages) return; pageNum++; renderModalPage(pageNum); }
-
-    function setupDoubleTap() {
-        const target = document.querySelector('.double-tap-target'); let lastTap = 0;
-        if (target) { target.addEventListener('click', function(e) { const now = new Date().getTime(); if (now - lastTap < 300) { handleModalLike(true); } else if (this.tagName === 'VIDEO') { this.muted = !this.muted; } lastTap = now; }); }
+    
+    function closeModal() {
+        document.getElementById('postModal').classList.add('hidden');
     }
-
-    function handleModalLike(showAnim = false) {
-        fetch('/like-post/', { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' }, body: `post_id=${currentPostId}` })
-        .then(r => r.json()).then(d => { updateIcons(d.liked, null); document.getElementById('modalLikesCount').innerText = d.count; if (showAnim && d.liked) { const h = document.getElementById('modalPopHeart'); h.classList.remove('animate-heart'); void h.offsetWidth; h.classList.add('animate-heart'); } });
-    }
-
-    function updateIcons(liked, saved) {
-        if (liked !== null) { const i = document.getElementById('modalLikeIcon'); if(liked) { i.classList.replace('fa-regular', 'fa-solid'); i.classList.add('text-red-500'); } else { i.classList.replace('fa-solid', 'fa-regular'); i.classList.remove('text-red-500'); } }
-        if (saved !== null) { const i = document.getElementById('modalSaveIcon'); if(saved) { i.classList.replace('fa-regular', 'fa-solid'); i.classList.add('text-blue-600'); } else { i.classList.replace('fa-solid', 'fa-regular'); i.classList.remove('text-blue-600'); } }
-    }
-
-    document.getElementById('modalLikeBtn').onclick = () => handleModalLike(false);
-    document.getElementById('modalSaveBtn').onclick = () => { fetch(`/save-resource/${currentPostId}/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(r => r.json()).then(d => updateIcons(null, d.saved)); };
-    function closeModal() { document.getElementById('postModal').classList.add('hidden'); document.body.style.overflow = 'auto'; }
-    function switchTab(tab) { document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active')); document.getElementById('tab-' + tab).classList.add('active'); document.getElementById('content-posts').classList.toggle('hidden', tab !== 'posts'); document.getElementById('content-saved').classList.toggle('hidden', tab !== 'saved'); }
 </script>
 
 </body>
